@@ -40,8 +40,12 @@ export async function GET(request: NextRequest) {
     await connectGoogleAccount(userId, code);
     settingsUrl.searchParams.set("connected", "1");
     return NextResponse.redirect(settingsUrl);
-  } catch {
+  } catch (error) {
+    console.error("Google OAuth callback failed:", error);
     settingsUrl.searchParams.set("error", "connect_failed");
+    if (error instanceof Error && error.message) {
+      settingsUrl.searchParams.set("error_detail", error.message.slice(0, 200));
+    }
     return NextResponse.redirect(settingsUrl);
   }
 }

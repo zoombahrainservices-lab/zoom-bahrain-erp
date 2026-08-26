@@ -48,7 +48,15 @@ async function checkConnection() {
 
   const admin = await db.query.users.findFirst({
     where: (users, { eq }) => eq(users.username, "admin"),
-    columns: { username: true, role: true, name: true },
+    columns: { username: true, role: true, name: true, id: true },
+  });
+
+  const googleLinks = await db.query.googleConnections.findMany({
+    columns: {
+      userId: true,
+      googleEmail: true,
+      connectedAt: true,
+    },
   });
 
   console.log("Supabase connection: OK");
@@ -63,6 +71,17 @@ async function checkConnection() {
       ? `Admin user: ${admin.username} (${admin.role}) — ${admin.name}`
       : "Admin user: not found — run npm run db:seed (requires SEED_ADMIN_PASSWORD)",
   );
+
+  if (googleLinks.length === 0) {
+    console.log("Google Drive links: none (connect in Settings)");
+  } else {
+    console.log(`Google Drive links (${googleLinks.length}):`);
+    for (const link of googleLinks) {
+      console.log(
+        `  - ${link.googleEmail ?? "unknown"} (user ${link.userId}) at ${link.connectedAt?.toISOString() ?? "unknown"}`,
+      );
+    }
+  }
 
   if (env.supabaseUrl && env.supabaseAnon) {
     const { createSupabaseServerClient } = await import("@/lib/supabase");

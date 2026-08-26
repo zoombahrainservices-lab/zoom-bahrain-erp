@@ -11,6 +11,11 @@ import { getGoogleConfig, getSessionSecret } from "@/lib/env";
 export const GOOGLE_DRIVE_SCOPE =
   "https://www.googleapis.com/auth/drive.file";
 
+export const GOOGLE_USERINFO_SCOPE =
+  "https://www.googleapis.com/auth/userinfo.email";
+
+const GOOGLE_OAUTH_SCOPES = [GOOGLE_DRIVE_SCOPE, GOOGLE_USERINFO_SCOPE];
+
 const ROOT_FOLDER_NAME = "Zoom ERP";
 
 function getOAuthStateSecret() {
@@ -41,7 +46,7 @@ export async function createGoogleAuthUrl(userId: string) {
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    scope: [GOOGLE_DRIVE_SCOPE],
+    scope: GOOGLE_OAUTH_SCOPES,
     state,
   });
 }
@@ -102,12 +107,20 @@ export async function connectGoogleAccount(userId: string, code: string) {
 
   client.setCredentials(tokens);
   const oauth2 = google.oauth2({ version: "v2", auth: client });
-  const profile = await oauth2.userinfo.get();
+
+  let googleEmail: string | null = null;
+  try {
+    const profile = await oauth2.userinfo.get();
+    googleEmail = profile.data.email ?? null;
+  } catch {
+    // Continue without email if userinfo scope was not granted yet.
+  }
+
   const drive = google.drive({ version: "v3", auth: client });
   const rootFolderId = await findOrCreateFolder(drive, ROOT_FOLDER_NAME);
   const clientsFolderId = await findOrCreateFolder(
     drive,
-    "Clients",
+    "Internal",
     rootFolderId,
   );
 
@@ -120,7 +133,7 @@ export async function connectGoogleAccount(userId: string, code: string) {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token ?? existing?.refreshToken ?? null,
     expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-    googleEmail: profile.data.email ?? null,
+    googleEmail: googleEmail,
     rootFolderId,
     clientsFolderId,
     connectedAt: new Date(),
