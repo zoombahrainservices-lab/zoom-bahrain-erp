@@ -50,6 +50,33 @@ export function getDatabaseUrl() {
   return url;
 }
 
+export function getSupabaseUrl() {
+  const url =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  if (!url) {
+    throw missingEnv("NEXT_PUBLIC_SUPABASE_URL");
+  }
+  return url.replace(/\/$/, "");
+}
+
+export function getSupabaseAnonKey() {
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.SUPABASE_ANON_KEY;
+  if (!key) {
+    throw missingEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
+  return key;
+}
+
+export function getSupabaseServiceRoleKey() {
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
+    process.env.SUPABASE_SECRET_KEY ??
+    null
+  );
+}
+
 export function getSessionSecret() {
   const secret = process.env.SESSION_SECRET;
   if (secret) {
@@ -77,6 +104,9 @@ export function getSeedAdminUsername() {
 
 export type EnvStatus = {
   database: boolean;
+  supabaseUrl: boolean;
+  supabaseAnon: boolean;
+  supabaseServiceRole: boolean;
   session: boolean;
   appUrl: string;
   google: boolean;
@@ -86,6 +116,17 @@ export type EnvStatus = {
 export function getEnvStatus(): EnvStatus {
   return {
     database: Boolean(process.env.DATABASE_URL),
+    supabaseUrl: Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL,
+    ),
+    supabaseAnon: Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+        process.env.SUPABASE_ANON_KEY,
+    ),
+    supabaseServiceRole: Boolean(
+      process.env.SUPABASE_SERVICE_ROLE_KEY ??
+        process.env.SUPABASE_SECRET_KEY,
+    ),
     session: Boolean(process.env.SESSION_SECRET),
     appUrl: getAppUrl(),
     google: Boolean(

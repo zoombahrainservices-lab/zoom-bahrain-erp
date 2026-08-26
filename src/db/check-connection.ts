@@ -13,11 +13,14 @@ async function checkConnection() {
   const env = getEnvStatus();
 
   console.log("Environment variables:");
-  console.log(`  DATABASE_URL (Supabase): ${env.database ? "set" : "MISSING"}`);
-  console.log(`  SESSION_SECRET:          ${env.session ? "set" : "MISSING"}`);
-  console.log(`  APP_URL:                 ${env.appUrl}`);
-  console.log(`  GOOGLE_CLIENT_ID/SECRET: ${env.google ? "set" : "not set (Drive disabled until added)"}`);
-  console.log(`  SEED_ADMIN_PASSWORD:     ${env.seed ? "set" : "not set (only needed for npm run db:seed)"}`);
+  console.log(`  DATABASE_URL (Postgres):   ${env.database ? "set" : "MISSING"}`);
+  console.log(`  NEXT_PUBLIC_SUPABASE_URL:  ${env.supabaseUrl ? "set" : "MISSING"}`);
+  console.log(`  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${env.supabaseAnon ? "set" : "MISSING"}`);
+  console.log(`  SUPABASE_SERVICE_ROLE_KEY: ${env.supabaseServiceRole ? "set" : "optional (server admin API)"}`);
+  console.log(`  SESSION_SECRET:            ${env.session ? "set" : "MISSING"}`);
+  console.log(`  APP_URL:                   ${env.appUrl}`);
+  console.log(`  GOOGLE_CLIENT_ID/SECRET:   ${env.google ? "set" : "not set (Drive disabled until added)"}`);
+  console.log(`  SEED_ADMIN_PASSWORD:       ${env.seed ? "set" : "not set (only needed for npm run db:seed)"}`);
   console.log("");
 
   const url = getDatabaseUrl();
@@ -60,6 +63,22 @@ async function checkConnection() {
       ? `Admin user: ${admin.username} (${admin.role}) — ${admin.name}`
       : "Admin user: not found — run npm run db:seed (requires SEED_ADMIN_PASSWORD)",
   );
+
+  if (env.supabaseUrl && env.supabaseAnon) {
+    const { createSupabaseServerClient } = await import("@/lib/supabase");
+    const supabase = createSupabaseServerClient();
+    const { count, error } = await supabase
+      .from("users")
+      .select("*", { count: "exact", head: true });
+
+    if (error) {
+      console.log(`Supabase API: FAILED — ${error.message}`);
+    } else {
+      console.log(`Supabase API: OK — users table reachable (${count ?? 0} rows)`);
+    }
+  } else {
+    console.log("Supabase API: skipped — add NEXT_PUBLIC_SUPABASE_URL + ANON_KEY");
+  }
 
   await client.end();
 }
