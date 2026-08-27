@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { driveFiles } from "@/db/schema";
 import { deleteDriveFile } from "@/lib/google";
+import { canManageContacts, canManageFiles } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -18,6 +19,10 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!canManageFiles(session) && !canManageContacts(session)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { id } = await context.params;
 
   const file = await db.query.driveFiles.findFirst({
@@ -28,10 +33,14 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
+  if (!file.organizationId && !file.contactId) {
+    return NextResponse.json({ error: "File not found" }, { status: 404 });
+  }
+
   try {
-    await deleteDriveFile(session.userId, file.driveFileId);
+    await deleteDriveFile(file.driveFileId);
   } catch {
-    // File may already be deleted in Drive — still remove local record.
+    // File may already be deleted in Drive - still remove local record.
   }
 
   await db.delete(driveFiles).where(eq(driveFiles.id, id));

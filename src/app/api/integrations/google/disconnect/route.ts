@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { disconnectGoogleAccount } from "@/lib/google";
+import { disconnectWorkspaceDrive } from "@/lib/google";
+import { isAdmin } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -11,6 +12,13 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await disconnectGoogleAccount(session.userId);
+  if (!isAdmin(session)) {
+    return NextResponse.json(
+      { error: "Only admins can remove file storage" },
+      { status: 403 },
+    );
+  }
+
+  await disconnectWorkspaceDrive();
   return NextResponse.json({ ok: true });
 }

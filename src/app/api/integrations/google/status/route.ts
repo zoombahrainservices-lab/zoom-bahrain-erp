@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { getGoogleConnection } from "@/lib/google";
+import { getWorkspaceDrive } from "@/lib/google";
 import { getGoogleConfig } from "@/lib/env";
+import { isAdmin } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -12,13 +13,13 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const connection = await getGoogleConnection(session.userId);
+  const connection = await getWorkspaceDrive();
   const configured = Boolean(getGoogleConfig());
 
   return NextResponse.json({
     configured,
     connected: Boolean(connection),
-    googleEmail: connection?.googleEmail ?? null,
     connectedAt: connection?.connectedAt ?? null,
+    canManage: isAdmin(session),
   });
 }

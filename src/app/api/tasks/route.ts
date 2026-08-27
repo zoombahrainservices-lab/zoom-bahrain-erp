@@ -4,7 +4,10 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { tasks, taskPriorities, taskStatuses } from "@/db/schema";
+import { createOperationEntry } from "@/lib/create-operation-entry";
+import { canAccessOrganizationData } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
+import { todayInputDate } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
@@ -14,7 +17,8 @@ const createTaskSchema = z.object({
   status: z.enum(taskStatuses).optional(),
   priority: z.enum(taskPriorities).optional(),
   dueDate: z.string().optional(),
-  clientId: z.string().optional(),
+  organizationId: z.string().optional(),
+  operationId: z.string().min(1, "Choose an operation"),
   assignedToId: z.string().optional(),
 });
 
@@ -24,6 +28,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!canAccessOrganizationData(session)) {
+    return NextResponse.json({ tasks: [] });
+  }
+
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
 
@@ -31,8 +39,11 @@ export async function GET(request: Request) {
     where: status ? eq(tasks.status, status as (typeof taskStatuses)[number]) : undefined,
     orderBy: [desc(tasks.updatedAt)],
     with: {
-      client: {
+      organization: {
         columns: { id: true, name: true, company: true },
+      },
+      operation: {
+        columns: { id: true, operationCode: true, title: true },
       },
       assignedTo: {
         columns: { id: true, name: true },
@@ -49,37 +60,49 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!canAccessOrganizationData(session)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const input = createTaskSchema.parse(body);
-    const id = crypto.randomUUID();
-    const now = new Date();
+    const entry = await createOperationEntry(
+      input.operationId,
+      {
+        entryType: "task",
+        body: input.title.trim(),
+        activityDate: todayInputDate(),
+      },
+      session.userId,
+    );
 
-    await db.insert(tasks).values({
-      id,
-      title: input.title.trim(),
-      description: input.description?.trim() || null,
-      status: input.status ?? "todo",
-      priority: input.priority ?? "medium",
-      dueDate: input.dueDate ? new Date(input.dueDate) : null,
-      clientId: input.clientId || null,
-      assignedToId: input.assignedToId || session.userId,
-      createdById: session.userId,
-      createdAt: now,
-      updatedAt: now,
-    });
+    if (!entry?.id) {
+      throw new Error("Failed to add to-do on the operation");
+    }
 
     const created = await db.query.tasks.findFirst({
-      where: eq(tasks.id, id),
+      where: eq(tasks.operationEntryId, entry.id),
       with: {
-        client: {
+        organization: {
           columns: { id: true, name: true, company: true },
+        },
+        operation: {
+          columns: { id: true, operationCode: true, title: true },
         },
         assignedTo: {
           columns: { id: true, name: true },
         },
       },
     });
+
+    if (created && input.priority && input.priority !== "medium") {
+      await db
+        .update(tasks)
+        .set({ priority: input.priority, updatedAt: new Date() })
+        .where(eq(tasks.id, created.id));
+      created.priority = input.priority;
+    }
 
     return NextResponse.json({ task: created }, { status: 201 });
   } catch (error) {

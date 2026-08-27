@@ -161,7 +161,7 @@ export default function BrandingPage() {
         <div className="rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/5">
           <Subheading>Catalyst component preview</Subheading>
           <Text className="mt-2">
-            Standard Catalyst buttons and badges — no custom UI overrides.
+            Standard Catalyst buttons and badges - no custom UI overrides.
           </Text>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button>Primary</Button>
@@ -177,10 +177,10 @@ export default function BrandingPage() {
           <Divider className="my-6" soft />
           <div className="space-y-2">
             <Text className="rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-3 text-green-700">
-              Approved — payment received
+              Approved - payment received
             </Text>
             <Text className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-red-700">
-              Urgent — invoice overdue
+              Urgent - invoice overdue
             </Text>
           </div>
         </div>

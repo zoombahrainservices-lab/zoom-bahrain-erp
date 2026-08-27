@@ -5,13 +5,32 @@ import { FormEvent, useState } from "react";
 
 import { Button } from "@/components/catalyst/button";
 import { Field, Label } from "@/components/catalyst/fieldset";
-import { Heading, Subheading } from "@/components/catalyst/heading";
+import { Heading } from "@/components/catalyst/heading";
 import { Input } from "@/components/catalyst/input";
-import { Strong, Text, TextLink } from "@/components/catalyst/text";
+import { Text, TextLink } from "@/components/catalyst/text";
 
 type AuthFormProps = {
   mode: "login" | "register";
 };
+
+const copy = {
+  login: {
+    title: "Sign in",
+    subtitle: "Use your Zoom ERP username and password.",
+    submit: "Sign in",
+    switch: "No account yet?",
+    switchLink: "Create one",
+    switchHref: "/register",
+  },
+  register: {
+    title: "Create account",
+    subtitle: "Fill in the fields below to get started.",
+    submit: "Create account",
+    switch: "Already have an account?",
+    switchLink: "Sign in",
+    switchHref: "/login",
+  },
+} as const;
 
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
@@ -20,6 +39,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const text = copy[mode];
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -56,69 +76,69 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid w-full max-w-sm grid-cols-1 gap-8">
-      <div>
-        <Subheading>Zoom ERP</Subheading>
-        <Text>Business management</Text>
-      </div>
+    <form
+      onSubmit={handleSubmit}
+      className="w-full max-w-sm"
+    >
+      <header className="mb-8">
+        <Text className="text-sm font-medium text-zinc-500">Zoom ERP</Text>
+        <Heading className="mt-2">{text.title}</Heading>
+        <Text className="mt-2 text-zinc-600">{text.subtitle}</Text>
+      </header>
 
-      <Heading>{mode === "login" ? "Sign in" : "Create account"}</Heading>
+      <div className="space-y-4">
+        {mode === "register" ? (
+          <Field>
+            <Label>Name</Label>
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Your name"
+              autoComplete="name"
+              required
+            />
+          </Field>
+        ) : null}
 
-      {mode === "register" ? (
         <Field>
-          <Label>Full name</Label>
+          <Label>Username</Label>
           <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            placeholder="username"
+            autoComplete="username"
             required
           />
         </Field>
-      ) : null}
 
-      <Field>
-        <Label>Username</Label>
-        <Input
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-          autoComplete="username"
-          required
-        />
-      </Field>
-
-      <Field>
-        <Label>Password</Label>
-        <Input
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete={
-            mode === "login" ? "current-password" : "new-password"
-          }
-          required
-          minLength={6}
-        />
-      </Field>
+        <Field>
+          <Label>Password</Label>
+          <Input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder={mode === "register" ? "At least 6 characters" : ""}
+            autoComplete={
+              mode === "login" ? "current-password" : "new-password"
+            }
+            required
+            minLength={6}
+          />
+        </Field>
+      </div>
 
       {error ? (
-        <Text className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-red-700">
-          {error}
-        </Text>
+        <Text className="mt-4 text-sm text-red-600">{error}</Text>
       ) : null}
 
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading
-          ? "Please wait..."
-          : mode === "login"
-            ? "Sign in"
-            : "Create account"}
+      <Button type="submit" className="mt-6 w-full" disabled={loading}>
+        {loading ? "Please wait..." : text.submit}
       </Button>
 
-      <Text>
-        {mode === "login" ? "No account yet? " : "Already have an account? "}
-        <TextLink href={mode === "login" ? "/register" : "/login"}>
-          <Strong>
-            {mode === "login" ? "Create one" : "Sign in"}
-          </Strong>
+      <Text className="mt-6 text-center text-sm text-zinc-500">
+        {text.switch}{" "}
+        <TextLink href={text.switchHref} className="text-zinc-950">
+          {text.switchLink}
         </TextLink>
       </Text>
     </form>

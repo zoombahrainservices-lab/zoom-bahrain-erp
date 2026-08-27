@@ -1,6 +1,7 @@
 'use client'
 
 import * as Headless from '@headlessui/react'
+import clsx from 'clsx'
 import React, { useState } from 'react'
 import { NavbarItem } from './navbar'
 
@@ -48,13 +49,20 @@ export function SidebarLayout({
   navbar,
   sidebar,
   children,
-}: React.PropsWithChildren<{ navbar: React.ReactNode; sidebar: React.ReactNode }>) {
+  flushContent = false,
+}: React.PropsWithChildren<{
+  navbar: React.ReactNode
+  sidebar: React.ReactNode
+  flushContent?: boolean
+}>) {
   let [showSidebar, setShowSidebar] = useState(false)
 
   return (
     <div className="relative isolate flex min-h-svh w-full bg-white max-lg:flex-col lg:bg-zinc-100 dark:bg-zinc-900 dark:lg:bg-zinc-950">
       {/* Sidebar on desktop */}
-      <div className="fixed inset-y-0 left-0 w-64 max-lg:hidden">{sidebar}</div>
+      <div className="fixed inset-y-0 left-0 w-64 max-lg:hidden border-r border-zinc-200 bg-white dark:border-white/10 dark:bg-zinc-900">
+        {sidebar}
+      </div>
 
       {/* Sidebar on mobile */}
       <MobileSidebar open={showSidebar} close={() => setShowSidebar(false)}>
@@ -72,9 +80,23 @@ export function SidebarLayout({
       </header>
 
       {/* Content */}
-      <main className="flex flex-1 flex-col pb-2 lg:min-w-0 lg:pt-2 lg:pr-2 lg:pl-64">
-        <div className="grow p-6 lg:rounded-lg lg:bg-white lg:p-10 lg:shadow-xs lg:ring-1 lg:ring-zinc-950/5 dark:lg:bg-zinc-900 dark:lg:ring-white/10">
-          <div className="mx-auto max-w-6xl">{children}</div>
+      <main
+        className={clsx(
+          'flex flex-1 flex-col lg:min-w-0 lg:pl-64',
+          flushContent ? 'min-h-svh bg-zinc-50' : 'pb-2 lg:pt-2 lg:pr-2',
+        )}
+      >
+        <div
+          className={clsx(
+            'grow',
+            flushContent
+              ? 'min-h-full bg-zinc-50'
+              : 'p-6 lg:rounded-lg lg:bg-white lg:p-10 lg:shadow-xs lg:ring-1 lg:ring-zinc-950/5 dark:lg:bg-zinc-900 dark:lg:ring-white/10',
+          )}
+        >
+          <div className={clsx(flushContent ? 'w-full' : 'mx-auto max-w-6xl')}>
+            {children}
+          </div>
         </div>
       </main>
     </div>

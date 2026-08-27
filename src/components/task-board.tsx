@@ -1,14 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 import { Badge } from "@/components/catalyst/badge";
 import { Button } from "@/components/catalyst/button";
 import { Field, Label } from "@/components/catalyst/fieldset";
 import { Input } from "@/components/catalyst/input";
 import { Select } from "@/components/catalyst/select";
+import { ListSearch, useListQuery } from "@/components/list-search";
 import type { TaskPriority, TaskStatus } from "@/db/schema";
+import { getOperationPartyLabel } from "@/lib/operation-fields";
+import { matchesQuery } from "@/lib/utils";
 
 type TaskBoardProps = {
   initialTasks: Array<{
@@ -18,10 +21,17 @@ type TaskBoardProps = {
     status: TaskStatus;
     priority: TaskPriority;
     dueDate: Date | null;
-    client: { id: string; name: string; company: string | null } | null;
+    organization: { id: string; name: string; company: string | null } | null;
+    operation: { id: string; operationCode: string; title: string } | null;
     assignedTo: { id: string; name: string } | null;
   }>;
-  clients: Array<{ id: string; name: string }>;
+  operations: Array<{
+    id: string;
+    operationCode: string;
+    title: string;
+    organization?: { name?: string | null } | null;
+    contact?: { name?: string | null; contactCode?: string | null } | null;
+  }>;
 };
 
 const columns: Array<{ key: TaskStatus; label: string }> = [
@@ -31,17 +41,35 @@ const columns: Array<{ key: TaskStatus; label: string }> = [
   { key: "done", label: "Done" },
 ];
 
-export function TaskBoard({ initialTasks, clients }: TaskBoardProps) {
+export function TaskBoard({ initialTasks, operations }: TaskBoardProps) {
   const router = useRouter();
   const [tasks, setTasks] = useState(initialTasks);
   const [title, setTitle] = useState("");
-  const [clientId, setClientId] = useState("");
+  const [operationId, setOperationId] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [loading, setLoading] = useState(false);
+  const [search] = useListQuery();
+
+  const visibleTasks = useMemo(() => {
+    return tasks.filter((task) =>
+      matchesQuery(
+        [
+          task.title,
+          task.description,
+          task.priority,
+          task.operation?.operationCode,
+          task.operation?.title,
+          task.organization?.name,
+          task.assignedTo?.name,
+        ],
+        search,
+      ),
+    );
+  }, [tasks, search]);
 
   async function createTask(event: FormEvent) {
     event.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || !operationId) return;
 
     setLoading(true);
     try {
@@ -50,7 +78,7 @@ export function TaskBoard({ initialTasks, clients }: TaskBoardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          clientId: clientId || undefined,
+          operationId,
           priority,
         }),
       });
@@ -62,7 +90,6 @@ export function TaskBoard({ initialTasks, clients }: TaskBoardProps) {
 
       setTasks((current) => [data.task, ...current]);
       setTitle("");
-      setClientId("");
       setPriority("medium");
       router.refresh();
     } finally {
@@ -89,6 +116,10 @@ export function TaskBoard({ initialTasks, clients }: TaskBoardProps) {
     }
   }
 
+  function openOperation(operationId: string) {
+    router.push(`/operations/${operationId}`);
+  }
+
   return (
     <div className="space-y-8">
       <form
@@ -96,7 +127,7 @@ export function TaskBoard({ initialTasks, clients }: TaskBoardProps) {
         className="grid gap-4 rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/5 md:grid-cols-4"
       >
         <Field className="md:col-span-2">
-          <Label>Task title</Label>
+          <Label>To-do</Label>
           <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -104,15 +135,17 @@ export function TaskBoard({ initialTasks, clients }: TaskBoardProps) {
           />
         </Field>
         <Field>
-          <Label>Client</Label>
+          <Label>Operation</Label>
           <Select
-            value={clientId}
-            onChange={(event) => setClientId(event.target.value)}
+            value={operationId}
+            onChange={(event) => setOperationId(event.target.value)}
+            required
           >
-            <option value="">No client</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name}
+            <option value="">Choose operation</option>
+            {operations.map((operation) => (
+              <option key={operation.id} value={operation.id}>
+                {operation.operationCode} · {operation.title} ·{" "}
+                {getOperationPartyLabel(operation)}
               </option>
             ))}
           </Select>
@@ -133,12 +166,14 @@ export function TaskBoard({ initialTasks, clients }: TaskBoardProps) {
         </Field>
         <Button
           type="submit"
-          disabled={loading}
+          disabled={loading || !operationId}
           className="md:col-span-4 md:justify-self-start"
         >
-          {loading ? "Adding..." : "Add task"}
+          {loading ? "Adding..." : "Add to operation"}
         </Button>
       </form>
+
+      <ListSearch placeholder="Search to-dos or operations…" />
 
       <div className="grid gap-4 xl:grid-cols-4">
         {columns.map((column) => (
@@ -149,12 +184,12 @@ export function TaskBoard({ initialTasks, clients }: TaskBoardProps) {
             <h3 className="mb-4 text-sm font-semibold text-zinc-950">
               {column.label}
               <span className="ml-2 text-zinc-400">
-                {tasks.filter((task) => task.status === column.key).length}
+                {visibleTasks.filter((task) => task.status === column.key).length}
               </span>
             </h3>
 
             <div className="space-y-3">
-              {tasks
+              {visibleTasks
                 .filter((task) => task.status === column.key)
                 .map((task) => (
                   <article
@@ -162,7 +197,17 @@ export function TaskBoard({ initialTasks, clients }: TaskBoardProps) {
                     className="rounded-lg border border-zinc-950/10 p-3"
                   >
                     <div className="mb-2 flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium">{task.title}</p>
+                      {task.operation ? (
+                        <button
+                          type="button"
+                          onClick={() => openOperation(task.operation!.id)}
+                          className="text-left text-sm font-medium text-zoom-dark hover:text-zoom-light"
+                        >
+                          {task.title}
+                        </button>
+                      ) : (
+                        <p className="text-sm font-medium">{task.title}</p>
+                      )}
                       <Badge
                         color={
                           task.priority === "urgent"
@@ -176,9 +221,13 @@ export function TaskBoard({ initialTasks, clients }: TaskBoardProps) {
                       </Badge>
                     </div>
 
-                    {task.client ? (
+                    {task.operation ? (
                       <p className="mb-2 text-xs text-zinc-500">
-                        {task.client.name}
+                        {task.operation.operationCode} · {task.operation.title}
+                      </p>
+                    ) : task.organization ? (
+                      <p className="mb-2 text-xs text-zinc-500">
+                        {task.organization.name}
                       </p>
                     ) : null}
 

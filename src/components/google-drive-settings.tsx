@@ -9,11 +9,11 @@ import { Divider } from "@/components/catalyst/divider";
 import { Subheading } from "@/components/catalyst/heading";
 import { Text } from "@/components/catalyst/text";
 
-type GoogleStatus = {
+type StorageStatus = {
   configured: boolean;
   connected: boolean;
-  googleEmail: string | null;
   connectedAt: string | null;
+  canManage: boolean;
 };
 
 type FlashMessage =
@@ -21,12 +21,14 @@ type FlashMessage =
   | { type: "error"; text: string };
 
 const errorMessages: Record<string, string> = {
-  access_denied: "Google sign-in was cancelled or blocked. Use a test-user email.",
+  access_denied:
+    "Storage authorization was cancelled. While Google Cloud is in testing mode, the Drive owner account must be listed as a test user in GCP.",
+  admin_required: "Only admins can authorize file storage.",
   login_required: "Your Zoom ERP session expired. Sign in again, then retry.",
-  missing_code: "Google did not return an authorization code. Try Connect again.",
+  missing_code: "Google did not return an authorization code. Try again.",
   state_mismatch: "Security check failed. Sign out, sign in again, then retry.",
   connect_failed:
-    "Google authorized but saving the connection failed. Check Drive API is enabled.",
+    "Storage authorization failed. Check that the Google Drive API is enabled in GCP.",
 };
 
 function readFlashFromParams(
@@ -37,7 +39,7 @@ function readFlashFromParams(
   if (connected === "1") {
     return {
       type: "success",
-      text: "Google Drive connected successfully.",
+      text: "File storage is ready. Your team uploads through Zoom ERP - not through Google login.",
     };
   }
 
@@ -45,7 +47,7 @@ function readFlashFromParams(
     const detail = errorDetail ? `: ${errorDetail}` : "";
     return {
       type: "error",
-      text: (errorMessages[error] ?? `Connection failed (${error}).`) + detail,
+      text: (errorMessages[error] ?? `Storage setup failed (${error}).`) + detail,
     };
   }
 
@@ -55,7 +57,7 @@ function readFlashFromParams(
 export function GoogleDriveSettings() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<GoogleStatus | null>(null);
+  const [status, setStatus] = useState<StorageStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
   const [flash, setFlash] = useState<FlashMessage | null>(null);
@@ -68,17 +70,17 @@ export function GoogleDriveSettings() {
       }
       const data = await response.json();
       setStatus(data);
-      return data as GoogleStatus;
+      return data as StorageStatus;
     } catch {
       setStatus({
         configured: false,
         connected: false,
-        googleEmail: null,
         connectedAt: null,
+        canManage: false,
       });
       setFlash({
         type: "error",
-        text: "Could not load Google Drive status. Sign in again and retry.",
+        text: "Could not load storage status. Sign in again and retry.",
       });
       return null;
     } finally {
@@ -104,14 +106,9 @@ export function GoogleDriveSettings() {
       setFlash(message);
     }
 
-    loadStatus().then((data) => {
-      if (connected === "1" && data?.connected && data.googleEmail) {
-        setFlash({
-          type: "success",
-          text: `Google Drive connected as ${data.googleEmail}.`,
-        });
-      }
-    });
+    if (connected === "1") {
+      loadStatus();
+    }
 
     router.replace("/settings");
   }, [searchParams, router]);
@@ -125,17 +122,17 @@ export function GoogleDriveSettings() {
   }
 
   if (loading) {
-    return <Text>Checking Google Drive...</Text>;
+    return <Text>Checking file storage...</Text>;
   }
 
   return (
     <section className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
       <div className="space-y-1">
-        <Subheading>Google Drive</Subheading>
+        <Subheading>File storage</Subheading>
         <Text>
-          Store files in your Google Drive under a{" "}
-          <strong>Zoom ERP</strong> folder (internal workspace). Each employee
-          connects their own Google account.
+          Google Drive is the storage bucket only - like S3. Zoom ERP handles
+          all users and permissions. The admin authorizes which Drive account
+          holds files once; employees never sign into Google.
         </Text>
       </div>
 
@@ -154,25 +151,20 @@ export function GoogleDriveSettings() {
 
         {!status?.configured ? (
           <Text className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-amber-800">
-            Server is missing Google credentials. Add{" "}
+            Server is missing storage credentials. Add{" "}
             <code className="text-xs">GOOGLE_CLIENT_ID</code> and{" "}
             <code className="text-xs">GOOGLE_CLIENT_SECRET</code> to your
             environment variables.
           </Text>
         ) : (
           <div className="rounded-lg bg-zinc-50 px-4 py-3 ring-1 ring-zinc-950/5">
-            <Text className="font-medium">Connection status</Text>
+            <Text className="font-medium">Storage status</Text>
             <ul className="mt-2 space-y-1 text-sm text-zinc-600">
-              <li>Google OAuth configured: yes</li>
-              <li>
-                Drive linked:{" "}
-                {status.connected
-                  ? `yes (${status.googleEmail ?? "unknown email"})`
-                  : "no"}
-              </li>
+              <li>Storage backend configured: yes</li>
+              <li>Bucket ready: {status.connected ? "yes" : "no"}</li>
               {status.connectedAt ? (
                 <li>
-                  Connected at:{" "}
+                  Authorized at:{" "}
                   {new Date(status.connectedAt).toLocaleString()}
                 </li>
               ) : null}
@@ -180,34 +172,44 @@ export function GoogleDriveSettings() {
           </div>
         )}
 
-        <Divider soft />
+        {!status?.canManage && status?.configured ? (
+          <Text className="text-sm text-zinc-600">
+            {status.connected
+              ? "File storage is active. Upload through Organizations when you have access."
+              : "Ask an admin to authorize file storage."}
+          </Text>
+        ) : null}
 
-        <div className="flex flex-wrap items-center gap-3">
-          {status?.connected ? (
-            <>
-              <Badge color="green">
-                Connected{status.googleEmail ? `: ${status.googleEmail}` : ""}
-              </Badge>
-              <Button
-                type="button"
-                outline
-                onClick={handleDisconnect}
-                disabled={disconnecting}
-              >
-                {disconnecting ? "Disconnecting..." : "Disconnect"}
-              </Button>
-            </>
-          ) : (
-            <Button
-              type="button"
-              onClick={() => {
-                window.location.assign("/api/integrations/google/connect");
-              }}
-            >
-              Connect Google Drive
-            </Button>
-          )}
-        </div>
+        {status?.canManage ? (
+          <>
+            <Divider soft />
+
+            <div className="flex flex-wrap items-center gap-3">
+              {status.connected ? (
+                <>
+                  <Badge color="green">Storage active</Badge>
+                  <Button
+                    type="button"
+                    outline
+                    onClick={handleDisconnect}
+                    disabled={disconnecting}
+                  >
+                    {disconnecting ? "Removing..." : "Remove storage link"}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    window.location.assign("/api/integrations/google/connect");
+                  }}
+                >
+                  Authorize file storage
+                </Button>
+              )}
+            </div>
+          </>
+        ) : null}
       </div>
     </section>
   );

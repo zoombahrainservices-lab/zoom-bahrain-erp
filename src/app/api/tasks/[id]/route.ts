@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { tasks, taskPriorities, taskStatuses } from "@/db/schema";
+import { operationEntries, tasks, taskPriorities, taskStatuses } from "@/db/schema";
+import { canAccessOrganizationData, isAdmin } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -14,7 +15,7 @@ const updateTaskSchema = z.object({
   status: z.enum(taskStatuses).optional(),
   priority: z.enum(taskPriorities).optional(),
   dueDate: z.string().nullable().optional(),
-  clientId: z.string().nullable().optional(),
+  organizationId: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
 });
 
@@ -26,6 +27,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!canAccessOrganizationData(session)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await context.params;
@@ -58,21 +63,35 @@ export async function PATCH(request: Request, context: RouteContext) {
               ? new Date(input.dueDate)
               : null
             : undefined,
-        clientId:
-          input.clientId !== undefined ? input.clientId || null : undefined,
+        organizationId:
+          input.organizationId !== undefined
+            ? input.organizationId || null
+            : undefined,
         assignedToId:
-          input.assignedToId !== undefined
+          input.assignedToId !== undefined && isAdmin(session)
             ? input.assignedToId || null
             : undefined,
         updatedAt: new Date(),
       })
       .where(eq(tasks.id, id));
 
+    if (existing.operationEntryId && input.status) {
+      await db
+        .update(operationEntries)
+        .set({
+          status: input.status === "done" ? "done" : "open",
+        })
+        .where(eq(operationEntries.id, existing.operationEntryId));
+    }
+
     const updated = await db.query.tasks.findFirst({
       where: eq(tasks.id, id),
       with: {
-        client: {
+        organization: {
           columns: { id: true, name: true, company: true },
+        },
+        operation: {
+          columns: { id: true, operationCode: true, title: true },
         },
         assignedTo: {
           columns: { id: true, name: true },
@@ -97,6 +116,13 @@ export async function DELETE(_request: Request, context: RouteContext) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isAdmin(session)) {
+    return NextResponse.json(
+      { error: "Only admins can delete tasks" },
+      { status: 403 },
+    );
   }
 
   const { id } = await context.params;

@@ -1,6 +1,9 @@
-import { ApplicationLayout } from "@/components/application-layout";
-import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
+
+import { ApplicationLayout } from "@/components/application-layout";
+import { AppToaster } from "@/components/app-toaster";
+import { canManageUsers } from "@/lib/permissions";
+import { getSession } from "@/lib/session";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const session = await getSession();
@@ -15,8 +18,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         username: session.username,
         role: session.role,
       }}
+      showUsersNav={canManageUsers(session)}
     >
       {children}
+      <AppToaster />
     </ApplicationLayout>
   );
 }

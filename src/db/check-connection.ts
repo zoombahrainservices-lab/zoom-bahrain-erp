@@ -41,9 +41,9 @@ async function checkConnection() {
   `);
 
   const [userCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.users);
-  const [clientCount] = await db
+  const [orgCount] = await db
     .select({ count: sql<number>`count(*)::int` })
-    .from(schema.clients);
+    .from(schema.organizations);
   const [taskCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.tasks);
 
   const admin = await db.query.users.findFirst({
@@ -51,10 +51,8 @@ async function checkConnection() {
     columns: { username: true, role: true, name: true, id: true },
   });
 
-  const googleLinks = await db.query.googleConnections.findMany({
+  const workspaceDrive = await db.query.workspaceDrive.findFirst({
     columns: {
-      userId: true,
-      googleEmail: true,
       connectedAt: true,
     },
   });
@@ -65,22 +63,19 @@ async function checkConnection() {
   console.log(
     `Tables (${tables.length}): ${tables.map((row) => row.table_name).join(", ")}`,
   );
-  console.log(`Rows — users: ${userCount.count}, clients: ${clientCount.count}, tasks: ${taskCount.count}`);
+  console.log(`Rows - users: ${userCount.count}, organizations: ${orgCount.count}, tasks: ${taskCount.count}`);
   console.log(
     admin
-      ? `Admin user: ${admin.username} (${admin.role}) — ${admin.name}`
-      : "Admin user: not found — run npm run db:seed (requires SEED_ADMIN_PASSWORD)",
+      ? `Admin user: ${admin.username} (${admin.role}) - ${admin.name}`
+      : "Admin user: not found - run npm run db:seed (requires SEED_ADMIN_PASSWORD)",
   );
 
-  if (googleLinks.length === 0) {
-    console.log("Google Drive links: none (connect in Settings)");
+  if (workspaceDrive) {
+    console.log(
+      `File storage: active (authorized at ${workspaceDrive.connectedAt?.toISOString() ?? "unknown"})`,
+    );
   } else {
-    console.log(`Google Drive links (${googleLinks.length}):`);
-    for (const link of googleLinks) {
-      console.log(
-        `  - ${link.googleEmail ?? "unknown"} (user ${link.userId}) at ${link.connectedAt?.toISOString() ?? "unknown"}`,
-      );
-    }
+    console.log("File storage: not authorized (admin sets up in Settings)");
   }
 
   if (env.supabaseUrl && env.supabaseAnon) {
@@ -91,12 +86,12 @@ async function checkConnection() {
       .select("*", { count: "exact", head: true });
 
     if (error) {
-      console.log(`Supabase API: FAILED — ${error.message}`);
+      console.log(`Supabase API: FAILED - ${error.message}`);
     } else {
-      console.log(`Supabase API: OK — users table reachable (${count ?? 0} rows)`);
+      console.log(`Supabase API: OK - users table reachable (${count ?? 0} rows)`);
     }
   } else {
-    console.log("Supabase API: skipped — add NEXT_PUBLIC_SUPABASE_URL + ANON_KEY");
+    console.log("Supabase API: skipped - add NEXT_PUBLIC_SUPABASE_URL + ANON_KEY");
   }
 
   await client.end();

@@ -4,9 +4,9 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import {
-  clients,
+  organizations,
   driveFiles,
-  googleConnections,
+  workspaceDrive,
   tasks,
   users,
 } from "@/db/schema";
@@ -84,8 +84,8 @@ export async function verifyUser(input: z.infer<typeof loginSchema>) {
 export async function resetToAdminUser() {
   await db.delete(driveFiles);
   await db.delete(tasks);
-  await db.delete(googleConnections);
-  await db.delete(clients);
+  await db.delete(workspaceDrive);
+  await db.delete(organizations);
   await db.delete(users);
 
   const passwordHash = await bcrypt.hash(getSeedAdminPassword(), 10);

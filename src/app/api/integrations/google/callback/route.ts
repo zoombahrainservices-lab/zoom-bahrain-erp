@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { connectGoogleAccount, verifyOAuthState } from "@/lib/google";
+import { connectWorkspaceDrive, verifyOAuthState } from "@/lib/google";
 import { getAppUrl } from "@/lib/env";
+import { isAdmin } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -13,6 +14,11 @@ export async function GET(request: NextRequest) {
 
   if (!session) {
     settingsUrl.searchParams.set("error", "login_required");
+    return NextResponse.redirect(settingsUrl);
+  }
+
+  if (!isAdmin(session)) {
+    settingsUrl.searchParams.set("error", "admin_required");
     return NextResponse.redirect(settingsUrl);
   }
 
@@ -31,13 +37,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const userId = await verifyOAuthState(state);
-    if (userId !== session.userId) {
+    const connectedByUserId = await verifyOAuthState(state);
+    if (connectedByUserId !== session.userId) {
       settingsUrl.searchParams.set("error", "state_mismatch");
       return NextResponse.redirect(settingsUrl);
     }
 
-    await connectGoogleAccount(userId, code);
+    await connectWorkspaceDrive(connectedByUserId, code);
     settingsUrl.searchParams.set("connected", "1");
     return NextResponse.redirect(settingsUrl);
   } catch (error) {

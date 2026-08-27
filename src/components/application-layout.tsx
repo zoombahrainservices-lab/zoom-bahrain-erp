@@ -9,28 +9,31 @@ import {
   DropdownLabel,
   DropdownMenu,
 } from "@/components/catalyst/dropdown";
+import { AppHotkeys } from "@/components/app-hotkeys";
 import { Navbar, NavbarItem, NavbarSection, NavbarSpacer } from "@/components/catalyst/navbar";
+import { NavbarRecents } from "@/components/navbar-recents";
 import {
   Sidebar,
   SidebarBody,
   SidebarFooter,
   SidebarHeader,
+  SidebarHeading,
   SidebarItem,
   SidebarLabel,
   SidebarSection,
 } from "@/components/catalyst/sidebar";
 import { SidebarLayout } from "@/components/catalyst/sidebar-layout";
 import {
+  CommandPalette,
+  openCommandPalette,
+} from "@/components/command-palette";
+import { navCapabilities } from "@/lib/app-capabilities";
+import {
   ArrowRightStartOnRectangleIcon,
   ChevronUpIcon,
-} from "@heroicons/react/16/solid";
-import {
-  CheckCircleIcon,
   Cog6ToothIcon,
-  HomeIcon,
-  SwatchIcon,
-  UserGroupIcon,
-} from "@heroicons/react/20/solid";
+} from "@heroicons/react/16/solid";
+import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import { usePathname, useRouter } from "next/navigation";
 
 type ApplicationLayoutProps = {
@@ -39,16 +42,15 @@ type ApplicationLayoutProps = {
     username: string;
     role: string;
   };
+  showUsersNav?: boolean;
   children: React.ReactNode;
 };
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
-  { href: "/clients", label: "Clients", icon: UserGroupIcon },
-  { href: "/tasks", label: "Tasks", icon: CheckCircleIcon },
-  { href: "/settings", label: "Settings", icon: Cog6ToothIcon },
-  { href: "/branding", label: "Branding", icon: SwatchIcon },
-];
+function navIsCurrent(pathname: string, href: string) {
+  if (pathname === href) return true;
+  if (href === "/dashboard") return false;
+  return pathname.startsWith(`${href}/`);
+}
 
 function AccountDropdownMenu({
   anchor,
@@ -72,9 +74,17 @@ function AccountDropdownMenu({
   );
 }
 
-export function ApplicationLayout({ user, children }: ApplicationLayoutProps) {
+export function ApplicationLayout({
+  user,
+  showUsersNav = false,
+  children,
+}: ApplicationLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const mainNav = navCapabilities("main", { admin: showUsersNav });
+  const workNav = navCapabilities("work", { admin: showUsersNav });
+  const controlNav = navCapabilities("control", { admin: showUsersNav });
+  const systemNav = navCapabilities("system", { admin: showUsersNav });
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -84,8 +94,18 @@ export function ApplicationLayout({ user, children }: ApplicationLayoutProps) {
 
   return (
     <SidebarLayout
+      flushContent={
+        pathname === "/organizations/new" ||
+        pathname === "/contacts/new" ||
+        pathname === "/operations/new" ||
+        /^\/operations\/[^/]+$/.test(pathname)
+      }
       navbar={
         <Navbar>
+          <NavbarItem onClick={openCommandPalette} aria-label="Jump or create (Ctrl+K)">
+            <MagnifyingGlassIcon data-slot="icon" />
+          </NavbarItem>
+          <NavbarRecents />
           <NavbarSpacer />
           <NavbarSection>
             <Dropdown>
@@ -111,17 +131,78 @@ export function ApplicationLayout({ user, children }: ApplicationLayoutProps) {
 
           <SidebarBody>
             <SidebarSection>
-              {navItems.map(({ href, label, icon: Icon }) => (
-                <SidebarItem
-                  key={href}
-                  href={href}
-                  current={pathname === href}
-                >
-                  <Icon data-slot="icon" />
-                  <SidebarLabel>{label}</SidebarLabel>
-                </SidebarItem>
-              ))}
+              {mainNav.map((item) => {
+                const Icon = item.icon;
+                const href = item.href!;
+                return (
+                  <SidebarItem
+                    key={item.id}
+                    href={href}
+                    current={navIsCurrent(pathname, href)}
+                  >
+                    <Icon data-slot="icon" />
+                    <SidebarLabel>{item.label}</SidebarLabel>
+                  </SidebarItem>
+                );
+              })}
             </SidebarSection>
+            {workNav.length > 0 ? (
+              <SidebarSection>
+                <SidebarHeading>Work</SidebarHeading>
+                {workNav.map((item) => {
+                  const Icon = item.icon;
+                  const href = item.href!;
+                  return (
+                    <SidebarItem
+                      key={item.id}
+                      href={href}
+                      current={navIsCurrent(pathname, href)}
+                    >
+                      <Icon data-slot="icon" />
+                      <SidebarLabel>{item.label}</SidebarLabel>
+                    </SidebarItem>
+                  );
+                })}
+              </SidebarSection>
+            ) : null}
+            {controlNav.length > 0 ? (
+              <SidebarSection>
+                <SidebarHeading>Control</SidebarHeading>
+                {controlNav.map((item) => {
+                  const Icon = item.icon;
+                  const href = item.href!;
+                  return (
+                    <SidebarItem
+                      key={item.id}
+                      href={href}
+                      current={navIsCurrent(pathname, href)}
+                    >
+                      <Icon data-slot="icon" />
+                      <SidebarLabel>{item.label}</SidebarLabel>
+                    </SidebarItem>
+                  );
+                })}
+              </SidebarSection>
+            ) : null}
+            {systemNav.length > 0 ? (
+              <SidebarSection>
+                <SidebarHeading>System</SidebarHeading>
+                {systemNav.map((item) => {
+                  const Icon = item.icon;
+                  const href = item.href!;
+                  return (
+                    <SidebarItem
+                      key={item.id}
+                      href={href}
+                      current={navIsCurrent(pathname, href)}
+                    >
+                      <Icon data-slot="icon" />
+                      <SidebarLabel>{item.label}</SidebarLabel>
+                    </SidebarItem>
+                  );
+                })}
+              </SidebarSection>
+            ) : null}
           </SidebarBody>
 
           <SidebarFooter className="max-lg:hidden">
@@ -154,6 +235,8 @@ export function ApplicationLayout({ user, children }: ApplicationLayoutProps) {
       }
     >
       {children}
+      <CommandPalette admin={showUsersNav} />
+      <AppHotkeys />
     </SidebarLayout>
   );
 }

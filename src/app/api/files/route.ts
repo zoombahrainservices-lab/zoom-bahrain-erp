@@ -2,12 +2,12 @@ import { desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 import { db } from "@/db";
-import { clients, driveFiles } from "@/db/schema";
+import { driveFiles, organizations } from "@/db/schema";
+import { getWorkspaceDrive, uploadFileToOrganizationFolder } from "@/lib/google";
 import {
-  deleteDriveFile,
-  getGoogleConnection,
-  uploadFileToDrive,
-} from "@/lib/google";
+  canAccessOrganizationData,
+  canManageFiles,
+} from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -18,13 +18,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const clientId = request.nextUrl.searchParams.get("clientId");
-  if (!clientId) {
-    return NextResponse.json({ error: "clientId is required" }, { status: 400 });
+  if (!canAccessOrganizationData(session)) {
+    return NextResponse.json({ files: [] });
+  }
+
+  const organizationId = request.nextUrl.searchParams.get("organizationId");
+  if (!organizationId) {
+    return NextResponse.json(
+      { error: "organizationId is required" },
+      { status: 400 },
+    );
+  }
+
+  const organization = await db.query.organizations.findFirst({
+    where: eq(organizations.id, organizationId),
+  });
+
+  if (!organization) {
+    return NextResponse.json(
+      { error: "Organization not found" },
+      { status: 404 },
+    );
   }
 
   const files = await db.query.driveFiles.findMany({
-    where: eq(driveFiles.clientId, clientId),
+    where: eq(driveFiles.organizationId, organizationId),
     orderBy: [desc(driveFiles.createdAt)],
     with: {
       uploadedBy: {
@@ -42,10 +60,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const connection = await getGoogleConnection(session.userId);
+  if (!canManageFiles(session)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const connection = await getWorkspaceDrive();
   if (!connection) {
     return NextResponse.json(
-      { error: "Connect Google Drive in Settings first" },
+      { error: "File storage is not set up. Ask an admin." },
       { status: 400 },
     );
   }
@@ -53,29 +75,45 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get("file");
-    const clientId = formData.get("clientId");
+    const organizationId = formData.get("organizationId");
 
-    if (!(file instanceof File) || typeof clientId !== "string") {
+    if (!(file instanceof File) || typeof organizationId !== "string") {
       return NextResponse.json({ error: "Invalid upload payload" }, { status: 400 });
     }
 
-    const client = await db.query.clients.findFirst({
-      where: eq(clients.id, clientId),
+    const organization = await db.query.organizations.findFirst({
+      where: eq(organizations.id, organizationId),
     });
 
-    if (!client) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 },
+      );
+    }
+
+    if (!organization.orgCode) {
+      return NextResponse.json(
+        { error: "Organization is missing org code" },
+        { status: 400 },
+      );
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploaded = await uploadFileToDrive({
-      userId: session.userId,
-      clientId: client.id,
-      clientName: client.company ?? client.name,
+    const { uploaded, folderId } = await uploadFileToOrganizationFolder({
+      orgCode: organization.orgCode,
+      folderId: organization.driveFolderId,
       fileName: file.name,
       mimeType: file.type || "application/octet-stream",
       buffer,
     });
+
+    if (!organization.driveFolderId) {
+      await db
+        .update(organizations)
+        .set({ driveFolderId: folderId })
+        .where(eq(organizations.id, organization.id));
+    }
 
     if (!uploaded.id) {
       return NextResponse.json({ error: "Upload failed" }, { status: 500 });
@@ -89,7 +127,7 @@ export async function POST(request: NextRequest) {
       size: uploaded.size ? Number(uploaded.size) : file.size,
       driveFileId: uploaded.id,
       webViewLink: uploaded.webViewLink ?? null,
-      clientId: client.id,
+      organizationId: organization.id,
       uploadedById: session.userId,
     });
 

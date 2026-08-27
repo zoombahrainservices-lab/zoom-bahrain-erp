@@ -13,8 +13,9 @@ async function clearForMigration() {
     TRUNCATE TABLE
       drive_files,
       tasks,
-      google_connections,
-      clients,
+      workspace_drive,
+      organization_contacts,
+      organizations,
       users
     RESTART IDENTITY CASCADE
   `;

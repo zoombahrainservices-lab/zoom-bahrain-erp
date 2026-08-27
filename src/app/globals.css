@@ -1,6 +1,52 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: Inter, sans-serif;
-  --font-sans--font-feature-settings: "cv11";
+  --font-sans: var(--font-poppins), Poppins, ui-sans-serif, sans-serif;
+
+  --color-zoom-dark: #065274;
+  --color-zoom-light: #019cdf;
+  --color-zoom-navy: #043b54;
+  --color-zoom-medium: #087eac;
+  --color-zoom-soft: #66c5ec;
+  --color-zoom-pale: #d9f2fc;
+  --color-zoom-pale-soft: #fafefe;
+  --color-zoom-palest: #f1fafe;
+  --color-zoom-charcoal: #3b3b3b;
+  --color-zoom-gray: #737373;
+  --color-zoom-surface: #f7f8f9;
+  --color-zoom-orange: #f58220;
+  --color-zoom-green: #22a06b;
+  --color-zoom-red: #d64545;
+}
+
+@layer base {
+  body {
+    @apply bg-zoom-surface text-zoom-charcoal;
+  }
+
+  .material-symbols-outlined {
+    font-family: "Material Symbols Outlined";
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1 {
+    @apply text-2xl font-bold leading-tight tracking-tight text-zoom-navy sm:text-3xl;
+  }
+
+  h2 {
+    @apply text-lg font-semibold leading-snug text-zoom-dark sm:text-xl;
+  }
+
+  h3 {
+    @apply text-base font-semibold leading-snug text-zoom-dark sm:text-lg;
+  }
 }
