@@ -17,7 +17,15 @@ import { canManageContacts, canManageOperations, isClientUser } from "@/lib/perm
 import { getSession } from "@/lib/session";
 import { getWorkDesk, type WorkDeskId } from "@/lib/work-desks";
 
-export async function WorkDeskPage({ deskId }: { deskId: WorkDeskId }) {
+export async function WorkDeskPage({
+  deskId,
+  hideTitle = false,
+  initialStart,
+}: {
+  deskId: WorkDeskId;
+  hideTitle?: boolean;
+  initialStart?: string;
+}) {
   const session = await getSession();
   if (!session) redirect("/login");
   if (isClientUser(session)) {
@@ -54,9 +62,13 @@ export async function WorkDeskPage({ deskId }: { deskId: WorkDeskId }) {
 
   return (
     <>
-      <Heading>{desk.title}</Heading>
-      <Text className="mt-2">{desk.blurb}</Text>
-      <div className="mt-6">
+      {hideTitle ? null : (
+        <>
+          <Heading>{desk.title}</Heading>
+          <Text className="mt-2">{desk.blurb}</Text>
+        </>
+      )}
+      <div className={hideTitle ? undefined : "mt-6"}>
         <Suspense fallback={<p className="text-sm text-zinc-500">Loading…</p>}>
           <WorkDeskClient
             desk={desk}
@@ -69,6 +81,7 @@ export async function WorkDeskPage({ deskId }: { deskId: WorkDeskId }) {
             contacts={parties.contacts}
             canManage={canManageOperations(session)}
             canManageContacts={canManageContacts(session)}
+            initialStart={initialStart}
           />
         </Suspense>
       </div>

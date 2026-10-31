@@ -416,11 +416,13 @@ export function OperationDetailClient({
     const data = (await response.json()) as {
       entry?: OperationEntryRecord;
       error?: string;
+      postingNote?: string;
     };
 
     if (!response.ok) {
       throw new Error(data.error ?? "Failed to update entry");
     }
+    if (data.postingNote) toast.message(data.postingNote);
 
     if (data.entry) {
       setEntries((current) =>

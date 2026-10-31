@@ -119,10 +119,27 @@ async function findOrCreateFolder(
   return created.data.id;
 }
 
+const DRIVE_RECONNECT_MESSAGE =
+  "Google Drive connection expired. Reconnect it in Settings.";
+
+let driveAuthError: string | null = null;
+
+function driveAuthFailureMessage(error: unknown) {
+  const parts = [error instanceof Error ? error.message : String(error)];
+  if (error && typeof error === "object" && "response" in error) {
+    const data = (error as { response?: { data?: { error?: string } } }).response?.data;
+    if (data?.error) parts.push(data.error);
+  }
+  return parts.some((part) => part.includes("invalid_grant"))
+    ? DRIVE_RECONNECT_MESSAGE
+    : null;
+}
+
 export async function connectWorkspaceDrive(
   connectedByUserId: string,
   code: string,
 ) {
+  driveAuthError = null;
   const client = createOAuthClient();
   const { tokens } = await client.getToken(code);
 
@@ -174,12 +191,17 @@ export async function getWorkspaceDrive() {
 }
 
 export async function disconnectWorkspaceDrive() {
+  driveAuthError = null;
   await db
     .delete(workspaceDrive)
     .where(eq(workspaceDrive.id, WORKSPACE_DRIVE_ID));
 }
 
 export async function getAuthenticatedDriveClient() {
+  if (driveAuthError) {
+    throw new Error(driveAuthError);
+  }
+
   const connection = await getWorkspaceDrive();
   if (!connection) {
     throw new Error("Company Google Drive is not connected");
@@ -191,6 +213,17 @@ export async function getAuthenticatedDriveClient() {
     refresh_token: connection.refreshToken ?? undefined,
     expiry_date: connection.expiresAt?.getTime(),
   });
+
+  try {
+    await client.getAccessToken();
+  } catch (error) {
+    const friendly = driveAuthFailureMessage(error);
+    if (friendly) {
+      driveAuthError = friendly;
+      throw new Error(friendly);
+    }
+    throw error;
+  }
 
   client.on("tokens", async (tokens) => {
     if (!tokens.access_token) return;

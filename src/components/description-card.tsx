@@ -42,7 +42,9 @@ export function DescriptionCard({
           <p
             className={clsx(
               "mt-0.5 max-w-2xl text-xs/5",
-              isAccent ? "text-zoom-pale" : "text-zoom-gray",
+              isAccent
+                ? "text-zoom-pale dark:text-zoom-soft"
+                : "text-zoom-gray dark:text-text-secondary",
             )}
           >
             {description}

@@ -9,6 +9,16 @@ import { Field, Label } from "@/components/catalyst/fieldset";
 import { Input } from "@/components/catalyst/input";
 import { Select } from "@/components/catalyst/select";
 import { ListSearch, useListQuery } from "@/components/list-search";
+import {
+  CompanyFields,
+  emptyCompanyDraft,
+  emptyPersonDraft,
+  NEW_PARTY,
+  PersonFields,
+  registerCompany,
+  type CompanyDraft,
+  type PersonDraft,
+} from "@/components/register-party-panel";
 import type { TaskPriority, TaskStatus } from "@/db/schema";
 import { getOperationPartyLabel } from "@/lib/operation-fields";
 import { matchesQuery } from "@/lib/utils";
@@ -41,14 +51,21 @@ const columns: Array<{ key: TaskStatus; label: string }> = [
   { key: "done", label: "Done" },
 ];
 
+const newPersonValue = "new-person";
+
 export function TaskBoard({ initialTasks, operations }: TaskBoardProps) {
   const router = useRouter();
   const [tasks, setTasks] = useState(initialTasks);
+  const [operationChoices, setOperationChoices] = useState(operations);
   const [title, setTitle] = useState("");
   const [operationId, setOperationId] = useState("");
+  const [person, setPerson] = useState<PersonDraft>(emptyPersonDraft);
+  const [company, setCompany] = useState<CompanyDraft>(emptyCompanyDraft());
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [search] = useListQuery();
+  const addingPerson = operationId === newPersonValue;
 
   const visibleTasks = useMemo(() => {
     return tasks.filter((task) =>
@@ -70,16 +87,25 @@ export function TaskBoard({ initialTasks, operations }: TaskBoardProps) {
   async function createTask(event: FormEvent) {
     event.preventDefault();
     if (!title.trim() || !operationId) return;
+    if (addingPerson && !person.name.trim()) return;
 
     setLoading(true);
+    setError("");
     try {
+      let organizationId = person.organizationId;
+      if (addingPerson && organizationId === NEW_PARTY) {
+        const created = await registerCompany(company, false);
+        organizationId = created.id;
+      }
       const response = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          operationId,
           priority,
+          ...(addingPerson
+            ? { newPerson: { ...person, organizationId: organizationId || undefined } }
+            : { operationId }),
         }),
       });
 
@@ -88,10 +114,20 @@ export function TaskBoard({ initialTasks, operations }: TaskBoardProps) {
         throw new Error(data.error ?? "Failed to create task");
       }
 
-      setTasks((current) => [data.task, ...current]);
+      if (data.task) {
+        setTasks((current) => [data.task, ...current]);
+      }
+      if (data.operation) {
+        setOperationChoices((current) => [data.operation, ...current]);
+        setOperationId(data.operation.id);
+      }
       setTitle("");
+      setPerson(emptyPersonDraft());
+      setCompany(emptyCompanyDraft());
       setPriority("medium");
       router.refresh();
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Failed to create task");
     } finally {
       setLoading(false);
     }
@@ -142,7 +178,8 @@ export function TaskBoard({ initialTasks, operations }: TaskBoardProps) {
             required
           >
             <option value="">Choose operation</option>
-            {operations.map((operation) => (
+            <option value={newPersonValue}>New person…</option>
+            {operationChoices.map((operation) => (
               <option key={operation.id} value={operation.id}>
                 {operation.operationCode} · {operation.title} ·{" "}
                 {getOperationPartyLabel(operation)}
@@ -150,6 +187,16 @@ export function TaskBoard({ initialTasks, operations }: TaskBoardProps) {
             ))}
           </Select>
         </Field>
+        {addingPerson ? (
+          <div className="md:col-span-4">
+            <PersonFields
+              value={person}
+              onChange={setPerson}
+              company={company}
+              onCompanyChange={setCompany}
+            />
+          </div>
+        ) : null}
         <Field>
           <Label>Priority</Label>
           <Select
@@ -164,12 +211,15 @@ export function TaskBoard({ initialTasks, operations }: TaskBoardProps) {
             <option value="urgent">Urgent</option>
           </Select>
         </Field>
+        {error ? (
+          <p className="text-sm text-red-500 md:col-span-4">{error}</p>
+        ) : null}
         <Button
           type="submit"
-          disabled={loading || !operationId}
+          disabled={loading || !operationId || (addingPerson && !person.name.trim())}
           className="md:col-span-4 md:justify-self-start"
         >
-          {loading ? "Adding..." : "Add to operation"}
+          {loading ? "Adding..." : addingPerson ? "Add person and to-do" : "Add to operation"}
         </Button>
       </form>
 

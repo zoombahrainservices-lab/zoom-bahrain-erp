@@ -7,6 +7,8 @@ import { isCommercialDocumentType } from "@/lib/operation-documents";
 import { getDivisionName, getOperationPartyLabel } from "@/lib/operation-fields";
 import { canAccessOperations, isClientUser } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
+import { listVatCodes } from "@/lib/accounting/queries";
+import { loadBillTo } from "@/lib/commercial-print-data";
 
 type CommercialDocumentPageProps = {
   params: Promise<{ id: string; entryId: string }>;
@@ -29,14 +31,15 @@ export default async function CommercialDocumentPage({
   }
 
   const { id, entryId } = await params;
-  const [operation, workspaceDrive] = await Promise.all([
-    getOperationById(id),
-    getWorkspaceDrive(),
-  ]);
-
+  const operation = await getOperationById(id);
   if (!operation) {
     notFound();
   }
+  const [workspaceDrive, vatCodes, billTo] = await Promise.all([
+    getWorkspaceDrive(),
+    listVatCodes(operation.divisionId),
+    loadBillTo(id),
+  ]);
 
   const entry = operation.entries?.find((item) => item.id === entryId);
   if (!entry || !isCommercialDocumentType(entry.entryType)) {
@@ -50,6 +53,16 @@ export default async function CommercialDocumentPage({
       divisionName={getDivisionName(operation.divisionId)}
       entry={entry}
       driveConnected={Boolean(workspaceDrive)}
+      billTo={billTo}
+      vatCodes={vatCodes
+        .filter((code) => code.companyId === operation.divisionId)
+        .map((code) => ({
+          id: code.id,
+          code: code.code,
+          name: code.name,
+          rate: code.rate,
+          treatment: code.treatment,
+        }))}
     />
   );
 }

@@ -34,6 +34,8 @@ export async function replaceDocumentLines(
         description: line.description.trim(),
         quantity: line.quantity.toFixed(3),
         unitAmount: line.unitAmount.toFixed(3),
+        discount: (line.discount ?? 0).toFixed(3),
+        vatCodeId: line.vatCodeId || null,
         sortOrder: index,
       })),
     );

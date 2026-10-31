@@ -81,9 +81,9 @@ export const commercialListPages = [
   {
     kind: "invoice" as const,
     href: "/invoice",
-    title: "Invoices",
+    title: "Sale invoices",
     blurb:
-      "Bills after a quotation is accepted. Open one to work it; the operation keeps the story.",
+      "These are the same customer invoices as Sale Invoices. Open one to edit it on the operation. Sending it posts the receivable once.",
   },
   {
     kind: "proposal" as const,

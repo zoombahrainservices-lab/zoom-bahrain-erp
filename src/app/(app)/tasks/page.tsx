@@ -61,7 +61,7 @@ export default async function TasksPage() {
     <>
       <Heading>Tasks</Heading>
       <Text className="mt-2">
-        Control list of to-dos. They live on an operation — open one to work it.
+        Control list of to-dos. They live on an operation — open one to work it. Choose New person to register someone who is not in the list yet.
       </Text>
       <div className="mt-8">
         <Suspense fallback={<p className="text-sm text-zinc-500">Loading…</p>}>

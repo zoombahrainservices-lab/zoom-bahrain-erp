@@ -1,7 +1,49 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+  --background: #f7f8f9;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --foreground: #3b3b3b;
+  --text-secondary: #737373;
+  --heading: #043b54;
+  --accent-readable: #065274;
+  --border: #e4e4e7;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #171b20;
+  --surface: #252c34;
+  --surface-elevated: #303841;
+  --foreground: #f1f5f9;
+  --text-secondary: #bbc7d3;
+  --heading: #78ccf3;
+  --accent-readable: #78ccf3;
+  --border: #394651;
+  --color-zoom-pale-soft: var(--surface);
+  --color-zoom-palest: var(--surface-elevated);
+  --color-zoom-surface: var(--background);
+  --color-zinc-50: var(--surface-elevated);
+  --color-zinc-100: var(--surface-elevated);
+  --color-zinc-200: var(--border);
+  --color-zinc-300: var(--border);
+}
+
 @theme {
   --font-sans: var(--font-poppins), Poppins, ui-sans-serif, sans-serif;
+
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-foreground: var(--foreground);
+  --color-text-secondary: var(--text-secondary);
+  --color-heading: var(--heading);
+  --color-accent-readable: var(--accent-readable);
+  --color-border: var(--border);
 
   --color-zoom-dark: #065274;
   --color-zoom-light: #019cdf;
@@ -20,8 +62,12 @@
 }
 
 @layer base {
+  html {
+    @apply bg-background;
+  }
+
   body {
-    @apply bg-zoom-surface text-zoom-charcoal;
+    @apply bg-zoom-surface text-zoom-charcoal dark:bg-background dark:text-foreground;
   }
 
   .material-symbols-outlined {
@@ -39,14 +85,113 @@
   }
 
   h1 {
-    @apply text-2xl font-bold leading-tight tracking-tight text-zoom-navy sm:text-3xl;
+    @apply text-2xl font-bold leading-tight tracking-tight text-zoom-navy sm:text-3xl dark:text-heading;
   }
 
   h2 {
-    @apply text-lg font-semibold leading-snug text-zoom-dark sm:text-xl;
+    @apply text-lg font-semibold leading-snug text-zoom-dark sm:text-xl dark:text-heading;
   }
 
   h3 {
-    @apply text-base font-semibold leading-snug text-zoom-dark sm:text-lg;
+    @apply text-base font-semibold leading-snug text-zoom-dark sm:text-lg dark:text-heading;
   }
+}
+
+/* Hardcoded light surfaces and navy text stay as-is in light mode.
+   In dark mode they pick up semantic tokens without rewriting every screen. */
+.dark .bg-white:not([class*="ring-black"]) {
+  background-color: var(--surface);
+}
+
+.dark .bg-white\/60 {
+  background-color: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+
+.dark .hover\:bg-white:hover {
+  background-color: var(--surface-elevated);
+}
+
+@media (width >= 64rem) {
+  .dark .lg\:bg-white {
+    background-color: var(--surface);
+  }
+}
+
+html.dark .text-zoom-dark:not([class*="text-white"]),
+html.dark .text-zoom-navy:not([class*="text-white"]),
+html.dark .text-zoom-medium:not([class*="text-white"]),
+html.dark .text-heading:not([class*="text-white"]),
+html.dark .text-accent-readable:not([class*="text-white"]) {
+  color: var(--accent-readable);
+}
+
+html.dark .text-zoom-charcoal:not([class*="text-white"]),
+html.dark .text-zinc-950:not([class*="text-white"]),
+html.dark .text-zinc-900:not([class*="text-white"]),
+html.dark .text-zinc-800:not([class*="text-white"]),
+html.dark .text-zinc-700:not([class*="text-white"]) {
+  color: var(--foreground);
+}
+
+html.dark .text-zoom-gray,
+html.dark .text-zinc-600,
+html.dark .text-zinc-500,
+html.dark .text-zinc-400 {
+  color: var(--text-secondary);
+}
+
+html.dark .text-zoom-pale {
+  color: #d9f2fc;
+}
+
+html.dark .bg-zoom-pale {
+  background-color: var(--surface-elevated);
+}
+
+html.dark .ring-zoom-pale {
+  --tw-ring-color: var(--border);
+}
+
+.dark .hover\:text-zoom-dark:hover,
+.dark .hover\:text-zoom-light:hover,
+.dark .hover\:text-zinc-950:hover,
+.dark .hover\:text-zinc-900:hover,
+.dark .hover\:text-zinc-700:hover,
+.dark .hover\:text-zinc-600:hover {
+  color: var(--accent-readable);
+}
+
+.dark .placeholder\:text-zinc-400::placeholder,
+.dark .placeholder\:text-zinc-500::placeholder {
+  color: var(--text-secondary);
+}
+
+.dark .border-zinc-200,
+.dark .border-zinc-300,
+.dark .border-zinc-200\/80,
+.dark .divide-zinc-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-zinc-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border);
+}
+
+.dark .ring-zinc-200,
+.dark .ring-zinc-300 {
+  --tw-ring-color: var(--border);
+}
+
+.dark .outline-zinc-200 {
+  outline-color: var(--border);
+}
+
+.dark .bg-zinc-50,
+.dark .bg-zinc-100 {
+  background-color: var(--surface-elevated);
+}
+
+.dark .hover\:bg-zinc-50:hover,
+.dark .hover\:bg-zinc-100:hover,
+.dark .hover\:bg-zinc-200:hover,
+.dark .hover\:bg-zoom-palest:hover,
+.dark .hover\:bg-zoom-palest\/30:hover {
+  background-color: var(--surface-elevated);
 }

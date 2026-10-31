@@ -6,7 +6,7 @@ export function Text({ className, ...props }: React.ComponentPropsWithoutRef<'p'
     <p
       data-slot="text"
       {...props}
-      className={clsx(className, 'text-base/6 text-zoom-gray sm:text-sm/6')}
+      className={clsx(className, 'text-base/6 text-zoom-gray sm:text-sm/6 dark:text-text-secondary')}
     />
   )
 }
@@ -17,14 +17,14 @@ export function TextLink({ className, ...props }: React.ComponentPropsWithoutRef
       {...props}
       className={clsx(
         className,
-        'text-zoom-charcoal underline decoration-zoom-light/50 data-hover:decoration-zoom-light',
+        'text-zoom-charcoal underline decoration-zoom-light/50 data-hover:decoration-zoom-light dark:text-foreground',
       )}
     />
   )
 }
 
 export function Strong({ className, ...props }: React.ComponentPropsWithoutRef<'strong'>) {
-  return <strong {...props} className={clsx(className, 'font-medium text-zoom-charcoal')} />
+  return <strong {...props} className={clsx(className, 'font-medium text-zoom-charcoal dark:text-foreground')} />
 }
 
 export function Code({ className, ...props }: React.ComponentPropsWithoutRef<'code'>) {

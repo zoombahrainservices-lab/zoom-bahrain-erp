@@ -20,6 +20,17 @@ import { commercialDocumentPath, isCommercialDocumentType } from "@/lib/operatio
 import { getDivisionLabel, getOperationPartyLabel } from "@/lib/operation-fields";
 import { formatBhd, formatDate, matchesQuery, todayInputDate } from "@/lib/utils";
 import type { WorkDesk, WorkStartAction } from "@/lib/work-desks";
+import {
+  CompanyFields,
+  emptyCompanyDraft,
+  emptyPersonDraft,
+  NEW_PARTY,
+  PersonFields,
+  registerCompany,
+  registerPerson,
+  type CompanyDraft,
+  type PersonDraft,
+} from "@/components/register-party-panel";
 
 type PartyOrg = { id: string; name: string; orgCode: string | null };
 type PartyContact = {
@@ -76,6 +87,7 @@ type WorkDeskClientProps = {
   contacts: PartyContact[];
   canManage: boolean;
   canManageContacts?: boolean;
+  initialStart?: string;
 };
 
 export function WorkDeskClient({
@@ -89,15 +101,22 @@ export function WorkDeskClient({
   contacts,
   canManage,
   canManageContacts = false,
+  initialStart,
 }: WorkDeskClientProps) {
   const router = useRouter();
   const [search] = useListQuery();
-  const [actionId, setActionId] = useState(desk.starts[0]?.id ?? "");
+  const [actionId, setActionId] = useState(
+    desk.starts.some((item) => item.id === initialStart) ? initialStart ?? "" : desk.starts[0]?.id ?? "",
+  );
   const [partyId, setPartyId] = useState("");
   const [operationId, setOperationId] = useState("");
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [organizationChoices, setOrganizationChoices] = useState(organizations);
+  const [contactChoices, setContactChoices] = useState(contacts);
+  const [person, setPerson] = useState<PersonDraft>(emptyPersonDraft());
+  const [company, setCompany] = useState<CompanyDraft>(emptyCompanyDraft());
   const [peopleFilter, setPeopleFilter] = useState<
     "all" | "staff" | "candidate" | "contractor" | "person"
   >("all");
@@ -186,14 +205,79 @@ export function WorkDeskClient({
 
     const partyName =
       nextAction.party === "organization"
-        ? organizations.find((item) => item.id === nextPartyId)?.name
-        : contacts.find((item) => item.id === nextPartyId)?.name ??
-          contacts.find((item) => item.id === nextPartyId)?.contactCode;
+        ? organizationChoices.find((item) => item.id === nextPartyId)?.name
+        : contactChoices.find((item) => item.id === nextPartyId)?.name ??
+          contactChoices.find((item) => item.id === nextPartyId)?.contactCode;
 
     setLoading(true);
     setError("");
 
     try {
+      let partyForStart = nextPartyId;
+      if (!existing && nextPartyId === NEW_PARTY) {
+        if (nextAction.party === "organization") {
+          const created = await registerCompany({
+            ...company,
+            role: company.role || "client",
+          });
+          partyForStart = created.id;
+          setOrganizationChoices((current) => [
+            { id: created.id, name: created.name, orgCode: created.code },
+            ...current,
+          ]);
+        } else {
+          const created = await registerPerson(person, company);
+          partyForStart = created.id;
+          setContactChoices((current) => [
+            { id: created.id, name: created.name, contactCode: created.code ?? "" },
+            ...current,
+          ]);
+        }
+        setPartyId(partyForStart);
+        nextPartyId = partyForStart;
+      }
+
+      if (existing && operationId === NEW_PARTY) {
+        if (nextAction.entryType === "task") {
+          const response = await fetch("/api/tasks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: title.trim() || nextAction.titlePrefix,
+              newPerson:
+                person.organizationId === NEW_PARTY
+                  ? {
+                      ...person,
+                      organizationId: (await registerCompany(company, false)).id,
+                    }
+                  : person,
+            }),
+          });
+          const data = (await response.json()) as { error?: string; operation?: { id: string } };
+          if (!response.ok) throw new Error(data.error ?? "Failed to add to-do");
+          if (data.operation?.id) router.push(`/operations/${data.operation.id}`);
+          router.refresh();
+          return;
+        }
+
+        const created = await registerPerson(person, company);
+        const response = await fetch("/api/operations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contactId: created.id,
+            divisionId: nextAction.divisionId,
+            title: title.trim() || `${nextAction.titlePrefix} · ${created.name}`,
+            entryType: nextAction.entryType,
+          }),
+        });
+        const data = (await response.json()) as { operation?: { id: string }; error?: string };
+        if (!response.ok) throw new Error(data.error ?? "Failed to start operation");
+        if (data.operation?.id) router.push(`/operations/${data.operation.id}`);
+        router.refresh();
+        return;
+      }
+
       if (existing) {
         if (nextAction.entryType === "task") {
           const response = await fetch("/api/tasks", {
@@ -239,7 +323,7 @@ export function WorkDeskClient({
       }
 
       if (nextAction.markKind && canManageContacts && nextAction.party === "contact") {
-        const person = people.find((item) => item.id === nextPartyId);
+        const person = people.find((item) => item.id === partyForStart);
         const kinds = new Set(person ? getContactKinds(person) : []);
         kinds.add(nextAction.markKind);
         await fetch(`/api/contacts/${nextPartyId}`, {
@@ -254,12 +338,20 @@ export function WorkDeskClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           organizationId:
-            nextAction.party === "organization" ? nextPartyId : undefined,
-          contactId: nextAction.party === "contact" ? nextPartyId : undefined,
+            nextAction.party === "organization" ? partyForStart : undefined,
+          contactId: nextAction.party === "contact" ? partyForStart : undefined,
           divisionId: nextAction.divisionId,
           title:
             title.trim() ||
-            `${nextAction.titlePrefix}${partyName ? ` · ${partyName}` : ""}`,
+            `${nextAction.titlePrefix}${
+              partyName ||
+              (nextAction.party === "organization" ? company.name.trim() : person.name.trim())
+                ? ` · ${
+                    partyName ||
+                    (nextAction.party === "organization" ? company.name.trim() : person.name.trim())
+                  }`
+                : ""
+            }`,
           entryType: nextAction.entryType,
         }),
       });
@@ -293,8 +385,8 @@ export function WorkDeskClient({
           <a href="/quotation" className="text-zoom-dark hover:underline">
             Quotations
           </a>
-          <a href="/invoice" className="text-zoom-dark hover:underline">
-            Invoices
+          <a href="/accounting/sales" className="text-zoom-dark hover:underline">
+            Sale invoices
           </a>
           <a href="/proposal" className="text-zoom-dark hover:underline">
             Proposals
@@ -338,6 +430,7 @@ export function WorkDeskClient({
                   className="mt-1 block w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zoom-dark"
                 >
                   <option value="">Select operation</option>
+                  <option value={NEW_PARTY}>New person…</option>
                   {activeOperations.map((operation) => (
                     <option key={operation.id} value={operation.id}>
                       {operation.operationCode} · {operation.title}
@@ -359,8 +452,11 @@ export function WorkDeskClient({
                       ? "Select organization"
                       : "Select contact"}
                   </option>
+                  <option value={NEW_PARTY}>
+                    {action.party === "organization" ? "New company…" : "New person…"}
+                  </option>
                   {action.party === "organization"
-                    ? organizations.map((organization) => (
+                    ? organizationChoices.map((organization) => (
                         <option key={organization.id} value={organization.id}>
                           {organization.name}
                           {organization.orgCode
@@ -368,7 +464,7 @@ export function WorkDeskClient({
                             : ""}
                         </option>
                       ))
-                    : contacts.map((contact) => (
+                    : contactChoices.map((contact) => (
                         <option key={contact.id} value={contact.id}>
                           {contact.name ?? contact.contactCode}
                           {contact.organization?.name
@@ -379,6 +475,20 @@ export function WorkDeskClient({
                 </select>
               </label>
             )}
+            {partyId === NEW_PARTY || operationId === NEW_PARTY ? (
+              <div className="sm:col-span-2">
+                {action.party === "organization" && partyId === NEW_PARTY ? (
+                  <CompanyFields value={company} onChange={setCompany} />
+                ) : (
+                  <PersonFields
+                    value={person}
+                    onChange={setPerson}
+                    company={company}
+                    onCompanyChange={setCompany}
+                  />
+                )}
+              </div>
+            ) : null}
             <label className="text-xs font-medium text-zinc-500">
               Title
               <Input
@@ -392,7 +502,14 @@ export function WorkDeskClient({
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <Button
             type="submit"
-            disabled={loading || (attachExisting ? !operationId : !partyId)}
+            disabled={
+              loading ||
+              (attachExisting ? !operationId : !partyId) ||
+              ((partyId === NEW_PARTY || operationId === NEW_PARTY) &&
+                (action.party === "organization" && partyId === NEW_PARTY
+                  ? !company.name.trim()
+                  : !person.name.trim()))
+            }
           >
             {loading
               ? "Opening…"

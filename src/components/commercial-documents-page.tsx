@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { CommercialDocumentListClient } from "@/components/commercial-document-list-client";
@@ -47,6 +48,13 @@ export async function CommercialDocumentsPage({
     <>
       <Heading>{title}</Heading>
       <Text className="mt-2">{blurb}</Text>
+      {kind === "invoice" ? (
+        <Text className="mt-2">
+          <Link href="/accounting/sales" className="font-medium text-zoom-dark">
+            Open the Sale Invoices ledger
+          </Link>
+        </Text>
+      ) : null}
       <div className="mt-8">
         <Suspense fallback={<p className="text-sm text-zinc-500">Loading…</p>}>
           <CommercialDocumentListClient kind={kind} items={items} />

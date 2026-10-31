@@ -139,3 +139,7 @@ export const tradingDivisions = divisions.filter((division) => !division.interna
 export function getDivisionById(id: string) {
   return divisionById[id];
 }
+
+export function getDivisionName(divisionId: string) {
+  return getDivisionById(divisionId)?.name ?? divisionId;
+}

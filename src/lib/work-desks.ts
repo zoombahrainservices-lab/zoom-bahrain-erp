@@ -128,8 +128,8 @@ export const workDesks: Record<WorkDeskId, WorkDesk> = {
       },
       {
         id: "delivery",
-        label: "Delivery",
-        how: "Deliver to a company.",
+        label: "Logistics Delivery",
+        how: "Cargo delivered to a company. This is not a sales delivery note.",
         divisionId: "logistics",
         entryType: "delivery",
         titlePrefix: "Delivery",
@@ -141,7 +141,7 @@ export const workDesks: Record<WorkDeskId, WorkDesk> = {
     id: "inventory",
     title: "Inventory",
     blurb:
-      "Stock lives on a warehousing operation. Receiving, storage, and dispatch are thread items.",
+      "Stock lives on a warehousing operation. Receiving, storage, and dispatch notes stay on the thread. Posted quantities use the stock documents below.",
     href: "/inventory",
     list: { kind: "entries", entryTypes: ["receiving", "storage", "dispatch"] },
     starts: [
@@ -178,7 +178,7 @@ export const workDesks: Record<WorkDeskId, WorkDesk> = {
     id: "marketing",
     title: "Marketing",
     blurb:
-      "Campaigns, events, and property files. The client is an organization. The work is an operation.",
+      "Advertising, Event, and Commerce are campaign categories. Each one is saved as a campaign on an operation. The company — advertising, events, or e-commerce — is the category. Lease and tenancy stay separate property files.",
     href: "/marketing",
     list: {
       kind: "operations",
@@ -188,7 +188,7 @@ export const workDesks: Record<WorkDeskId, WorkDesk> = {
       {
         id: "campaign-adv",
         label: "Advertising",
-        how: "Media or brand campaign.",
+        how: "Campaign category: advertising. Saved as a campaign, not a separate module.",
         divisionId: "advertising",
         entryType: "campaign",
         titlePrefix: "Campaign",
@@ -197,7 +197,7 @@ export const workDesks: Record<WorkDeskId, WorkDesk> = {
       {
         id: "event",
         label: "Event",
-        how: "Conference, exhibition, or activation.",
+        how: "Campaign category: event. Saved as a campaign on the events company.",
         divisionId: "events",
         entryType: "campaign",
         titlePrefix: "Event",
@@ -206,7 +206,7 @@ export const workDesks: Record<WorkDeskId, WorkDesk> = {
       {
         id: "commerce",
         label: "Commerce",
-        how: "Online retail campaign.",
+        how: "Campaign category: commerce. Saved as a campaign on the e-commerce company.",
         divisionId: "e-commerce",
         entryType: "campaign",
         titlePrefix: "Commerce",
@@ -257,7 +257,7 @@ export const workDesks: Record<WorkDeskId, WorkDesk> = {
     title: "Accounting",
     blurb:
       "Money in and money out from the operation thread. Quotations, invoices, costs, procurement.",
-    href: "/accounting",
+    href: "/accounting/desk",
     list: { kind: "money", entryTypes: [...moneyEntryTypes] },
     starts: [
       {

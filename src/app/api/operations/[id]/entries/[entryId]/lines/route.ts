@@ -1,9 +1,11 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { operationEntries } from "@/db/schema";
+import { accountingVatCodes, operationEntries } from "@/db/schema";
+import { AccountingError, filsToAmount } from "@/lib/accounting/money";
+import { priceSalesLine } from "@/lib/accounting/phase3-rules";
 import {
   replaceDocumentLines,
 } from "@/lib/create-operation-document-lines";
@@ -63,7 +65,44 @@ export async function PUT(request: Request, context: RouteContext) {
       );
     }
 
+    let invoiceTotal: bigint | null = null;
+    if (
+      existing.entryType === "invoice" &&
+      (existing.taxVersion === 1 || input.lines.some((line) => line.vatCodeId))
+    ) {
+      const codeIds = [...new Set(input.lines.flatMap((line) => (line.vatCodeId ? [line.vatCodeId] : [])))];
+      const codes = codeIds.length
+        ? await db
+            .select()
+            .from(accountingVatCodes)
+            .where(inArray(accountingVatCodes.id, codeIds))
+        : [];
+      const byId = new Map(codes.map((code) => [code.id, code]));
+      invoiceTotal = 0n;
+      for (const line of input.lines) {
+        if (line.quantity <= 0 || line.unitAmount <= 0) continue;
+        const code = line.vatCodeId ? byId.get(line.vatCodeId) : null;
+        const priced = priceSalesLine({
+          description: line.description,
+          quantity: line.quantity.toFixed(3),
+          unitAmount: line.unitAmount.toFixed(3),
+          discount: (line.discount ?? 0).toFixed(3),
+          vat: code ? { id: code.id, rate: code.rate, treatment: code.treatment } : null,
+        });
+        invoiceTotal += priced.total;
+      }
+    }
+
     const lines = await replaceDocumentLines(entryId, input.lines);
+    await db.update(operationEntries).set({
+      ...(invoiceTotal !== null
+        ? { taxVersion: 1, amount: filsToAmount(invoiceTotal) }
+        : {}),
+      issuedOn: input.issuedOn || existing.issuedOn,
+      dueOn: input.dueOn || existing.dueOn,
+      paymentTerms: input.paymentTerms ?? existing.paymentTerms,
+      ...(input.body !== undefined ? { body: input.body } : {}),
+    }).where(eq(operationEntries.id, entryId));
     const entry = await db.query.operationEntries.findFirst({
       where: eq(operationEntries.id, entryId),
       with: entryWithRelations,
@@ -76,6 +115,17 @@ export async function PUT(request: Request, context: RouteContext) {
         { error: error.issues[0]?.message ?? "Invalid input" },
         { status: 400 },
       );
+    }
+
+    if (
+      error instanceof AccountingError ||
+      (error instanceof Error &&
+        (error.message.includes("Sales invoices") ||
+          error.message.includes("Quantity") ||
+          error.message.includes("Discount") ||
+          error.message.includes("VAT")))
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
     console.error(error);

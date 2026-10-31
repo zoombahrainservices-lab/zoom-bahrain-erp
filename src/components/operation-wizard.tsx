@@ -16,6 +16,16 @@ import {
 } from "@/lib/operation-activity-types";
 import { divisionOptions } from "@/lib/operation-fields";
 import { titleExamples, wizardSteps } from "@/lib/operation-ui";
+import {
+  CompanyFields,
+  emptyCompanyDraft,
+  emptyPersonDraft,
+  PersonFields,
+  registerCompany,
+  registerPerson,
+  type CompanyDraft,
+  type PersonDraft,
+} from "@/components/register-party-panel";
 
 type PartyType = "organization" | "contact";
 
@@ -47,6 +57,9 @@ export function OperationWizard() {
   const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [registering, setRegistering] = useState(false);
+  const [person, setPerson] = useState<PersonDraft>(emptyPersonDraft);
+  const [company, setCompany] = useState<CompanyDraft>(emptyCompanyDraft("client"));
 
   useEffect(() => {
     async function loadOptions() {
@@ -306,6 +319,77 @@ export function OperationWizard() {
                       </span>
                     </button>
                   ))}
+            </div>
+            <div className="border-t border-zinc-200 pt-4">
+              <button
+                type="button"
+                className="text-sm font-medium text-zoom-dark"
+                onClick={() => setRegistering((current) => !current)}
+              >
+                {registering
+                  ? "Close registration"
+                  : partyType === "organization"
+                    ? "Register a new company"
+                    : "Register a new person"}
+              </button>
+              {registering ? (
+                <div className="mt-3 space-y-3">
+                  {partyType === "organization" ? (
+                    <CompanyFields value={company} onChange={setCompany} />
+                  ) : (
+                    <PersonFields
+                      value={person}
+                      onChange={setPerson}
+                      company={company}
+                      onCompanyChange={setCompany}
+                    />
+                  )}
+                  <Button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      void (async () => {
+                        setLoading(true);
+                        setError("");
+                        try {
+                          if (partyType === "organization") {
+                            const created = await registerCompany(company);
+                            setOrganizations((current) => [
+                              { id: created.id, name: created.name, orgCode: created.code },
+                              ...current,
+                            ]);
+                            setOrganizationId(created.id);
+                            setCompany(emptyCompanyDraft("client"));
+                          } else {
+                            const created = await registerPerson(person, company);
+                            setContacts((current) => [
+                              {
+                                id: created.id,
+                                name: created.name,
+                                contactCode: created.code ?? "",
+                              },
+                              ...current,
+                            ]);
+                            setContactId(created.id);
+                            setPerson(emptyPersonDraft());
+                          }
+                          setRegistering(false);
+                        } catch (registerError) {
+                          setError(
+                            registerError instanceof Error
+                              ? registerError.message
+                              : "Could not register",
+                          );
+                        } finally {
+                          setLoading(false);
+                        }
+                      })();
+                    }}
+                  >
+                    {loading ? "Saving…" : "Save and select"}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}

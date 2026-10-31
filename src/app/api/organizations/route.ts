@@ -8,6 +8,7 @@ import { markInquiryConvertedToOrganization } from "@/lib/convert-inquiry";
 import { provisionOrganizationDrive } from "@/lib/organization-drive";
 import {
   canAccessOrganizationData,
+  canManageOperations,
   canManageOrganizations,
 } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
@@ -48,9 +49,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!canManageOrganizations(session)) {
+  if (!canManageOrganizations(session) && !canManageOperations(session)) {
     return NextResponse.json(
-      { error: "Only admins can create organizations" },
+      { error: "You cannot register a company" },
       { status: 403 },
     );
   }
@@ -112,6 +113,8 @@ export async function POST(request: Request) {
               fileName: logoFile.name,
             }
           : undefined,
+      }).catch((driveError) => {
+        console.error(driveError);
       });
 
       const refreshed = await db.query.organizations.findFirst({

@@ -47,7 +47,11 @@ export async function GET(_request: Request, context: RouteContext) {
       },
     });
   } catch (error) {
-    console.error(error);
+    const message = error instanceof Error ? error.message : "Failed to load logo";
+    if (message.includes("Reconnect it in Settings")) {
+      return NextResponse.json({ error: message }, { status: 503 });
+    }
+    console.error(message);
     return NextResponse.json({ error: "Failed to load logo" }, { status: 500 });
   }
 }

@@ -13,10 +13,16 @@ export const documentLineDraftSchema = z.object({
   description: z.string().max(200).default(""),
   quantity: z.coerce.number().min(0),
   unitAmount: z.coerce.number().min(0),
+  discount: z.coerce.number().min(0).optional(),
+  vatCodeId: z.string().nullable().optional(),
 });
 
 export const documentLinesReplaceSchema = z.object({
   lines: z.array(documentLineDraftSchema).max(50),
+  issuedOn: z.string().optional(),
+  dueOn: z.string().optional(),
+  paymentTerms: z.string().max(80).optional(),
+  body: z.string().max(4000).optional(),
 });
 
 export type DocumentLineDraft = z.infer<typeof documentLineDraftSchema>;

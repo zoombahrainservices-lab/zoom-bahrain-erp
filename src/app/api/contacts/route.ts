@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { organizationContacts, organizations } from "@/db/schema";
 import { createContactWithCode } from "@/lib/create-contact";
 import { contactRegistrationSchema } from "@/lib/contact-fields";
-import { canAccessContactData, canManageContacts } from "@/lib/permissions";
+import { canAccessContactData, canManageContacts, canManageOperations } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -40,9 +40,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!canManageContacts(session)) {
+  if (!canManageContacts(session) && !canManageOperations(session)) {
     return NextResponse.json(
-      { error: "Only admins can create contacts" },
+      { error: "You cannot register a person" },
       { status: 403 },
     );
   }

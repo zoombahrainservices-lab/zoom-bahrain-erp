@@ -14,9 +14,10 @@ import {
   deleteDriveFile,
   getWorkspaceDrive,
 } from "@/lib/google";
+import { buildCommercialHtml } from "@/lib/commercial-print";
+import { loadCommercialPrint } from "@/lib/commercial-print-data";
 import {
   areDocumentNumbersLocked,
-  buildDocumentTemplateHtml,
   documentAmountLabel,
   documentFileName,
   GOOGLE_DOC_MIME,
@@ -139,6 +140,8 @@ export async function generateCommercialDocument(options: {
     preparedBy: preparedBy?.name ?? "Zoom ERP",
   };
 
+  const printModel = await loadCommercialPrint(options.operationId, options.entryId);
+
   if (existingDoc && options.replace) {
     const docs = (entry.files ?? []).filter(
       (file) => file.mimeType === GOOGLE_DOC_MIME,
@@ -156,7 +159,7 @@ export async function generateCommercialDocument(options: {
   const created = await createGoogleDocFromHtml({
     folderId,
     fileName: documentFileName(context),
-    html: buildDocumentTemplateHtml(context),
+    html: buildCommercialHtml(printModel),
   });
 
   if (!created.id) {

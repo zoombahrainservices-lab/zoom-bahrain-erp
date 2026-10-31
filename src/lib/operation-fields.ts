@@ -135,6 +135,10 @@ export type OperationEntryRecord = {
   documentStage?: OperationDocumentStage | null;
   parentEntryId?: string | null;
   amount?: string | null;
+  issuedOn?: string | null;
+  dueOn?: string | null;
+  paymentTerms?: string;
+  taxVersion?: number;
   vendorOrganizationId?: string | null;
   vendorContactId?: string | null;
   assignedTo?: {
@@ -161,6 +165,8 @@ export type OperationEntryRecord = {
     description: string;
     quantity: string;
     unitAmount: string;
+    discount?: string;
+    vatCodeId?: string | null;
     sortOrder: number;
   }[];
 };

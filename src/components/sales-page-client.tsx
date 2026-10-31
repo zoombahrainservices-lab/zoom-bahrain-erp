@@ -133,7 +133,7 @@ export function SalesPageClient({
           <h2 className="text-sm font-semibold uppercase tracking-wide text-white">
             Quick capture
           </h2>
-          <p className="mt-1 text-sm text-zoom-pale">
+          <p className="mt-1 text-sm text-zoom-pale dark:text-zoom-soft">
             Log a call in seconds. Work happens on the operation.
           </p>
         </div>

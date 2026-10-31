@@ -2,7 +2,6 @@ import type { ComponentType, SVGProps } from "react";
 import {
   ArchiveBoxIcon,
   BanknotesIcon,
-  BoltIcon,
   BriefcaseIcon,
   BuildingOffice2Icon,
   CalendarDaysIcon,
@@ -10,6 +9,8 @@ import {
   Cog6ToothIcon,
   DocumentDuplicateIcon,
   DocumentTextIcon,
+  BookOpenIcon,
+  ClockIcon,
   HomeIcon,
   IdentificationIcon,
   MegaphoneIcon,
@@ -61,14 +62,25 @@ export const capabilityGroupLabels: Record<CapabilityGroup, string> = {
 export const appCapabilities: AppCapability[] = [
   {
     id: "dashboard",
-    label: "Dashboard",
+    label: "Home",
     href: "/dashboard",
     group: "control",
     nav: "main",
     status: "live",
     icon: HomeIcon,
-    how: "Overview only. Open a row to work on the operation.",
-    keywords: ["home", "overview", "control"],
+    how: "Sales, purchases, cash, and bank for the selected company and period.",
+    keywords: ["home", "dashboard", "sales", "cash"],
+  },
+  {
+    id: "guide",
+    label: "Guide",
+    href: "/guide",
+    group: "control",
+    nav: "none",
+    status: "live",
+    icon: BookOpenIcon,
+    how: "How Zoom ERP works, and how it is built.",
+    keywords: ["guide", "docs", "how", "overview"],
   },
   {
     id: "now",
@@ -77,7 +89,7 @@ export const appCapabilities: AppCapability[] = [
     group: "core",
     nav: "main",
     status: "live",
-    icon: BoltIcon,
+    icon: ClockIcon,
     how: "What needs you today. Quiet files, waiting quotes, latest updates.",
     keywords: ["today", "pulse", "attention", "queue", "focus"],
   },
@@ -182,13 +194,13 @@ export const appCapabilities: AppCapability[] = [
   },
   {
     id: "invoice",
-    label: "Invoices",
+    label: "Sale invoices",
     href: "/invoice",
     group: "control",
     nav: "none",
     status: "live",
     icon: BanknotesIcon,
-    how: "Bill after a quotation is accepted. Still an operation document.",
+    how: "The same customer invoices as Sale Invoices. This list opens the document on its operation and does not post a second receivable.",
     keywords: ["bill", "receivable", "money in"],
   },
   {
@@ -310,64 +322,13 @@ export const appCapabilities: AppCapability[] = [
     nav: "control",
     status: "live",
     icon: BanknotesIcon,
-    how: "Money in and money out from the operation thread.",
+    how: "Company ledgers, invoices, payments, journals, and financial reports.",
     keywords: ["finance", "ledger", "payment"],
   },
 ];
 
-const mainNavOrder = [
-  "dashboard",
-  "now",
-  "operations",
-  "sales",
-  "services",
-  "organizations",
-  "contacts",
-  "tasks",
-] as const;
-
-const systemNavOrder = [
-  "functions",
-  "divisions",
-  "settings",
-  "branding",
-  "users",
-] as const;
-
-const workNavOrder = ["hr", "logistics", "inventory", "marketing"] as const;
-
 export function getCapability(id: string) {
   return appCapabilities.find((item) => item.id === id);
-}
-
-export function navCapabilities(
-  section: CapabilityNav,
-  options?: { admin?: boolean },
-) {
-  const items = appCapabilities.filter(
-    (item) =>
-      item.nav === section &&
-      item.status === "live" &&
-      item.href &&
-      (options?.admin || !item.adminOnly),
-  );
-
-  const order =
-    section === "main"
-      ? mainNavOrder
-      : section === "work"
-        ? workNavOrder
-        : section === "system"
-          ? systemNavOrder
-          : null;
-
-  if (!order) return items;
-
-  return [...items].sort((a, b) => {
-    const aIndex = (order as readonly string[]).indexOf(a.id);
-    const bIndex = (order as readonly string[]).indexOf(b.id);
-    return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex);
-  });
 }
 
 export function capabilitiesByGroup(options?: { admin?: boolean }) {

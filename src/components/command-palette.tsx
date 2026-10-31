@@ -14,6 +14,7 @@ import {
   type AppCapability,
   type QuickCreateAction,
 } from "@/lib/app-capabilities";
+import { collectShellItems } from "@/lib/shell-nav";
 import {
   getOperationPartyLabel,
   type OperationRecord,
@@ -35,7 +36,7 @@ type CommandPaletteProps = {
 };
 
 const itemClass =
-  "flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm text-zoom-dark data-[selected=true]:bg-zoom-palest";
+  "flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm text-zoom-dark data-[selected=true]:bg-zoom-palest dark:data-[selected=true]:bg-surface-elevated";
 
 const groupClass =
   "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-zinc-400";
@@ -49,6 +50,10 @@ export function CommandPalette({ admin = false }: CommandPaletteProps) {
   const [pins, setPins] = useState<RememberedOperation[]>([]);
   const items = searchableCapabilities({ admin });
   const creates = visibleQuickCreates({ admin });
+  const knownPages = new Set(items.map((item) => `${item.label}|${item.href ?? ""}`));
+  const menuPages = collectShellItems({ admin }).filter(
+    (item) => !knownPages.has(`${item.label}|${item.href}`),
+  );
 
   useEffect(() => {
     if (navigator.platform.toUpperCase().includes("MAC")) {
@@ -56,7 +61,7 @@ export function CommandPalette({ admin = false }: CommandPaletteProps) {
     }
 
     function onKey(event: KeyboardEvent) {
-      if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
+      if (event.key?.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         setOpen((current) => !current);
       }
@@ -117,12 +122,12 @@ export function CommandPalette({ admin = false }: CommandPaletteProps) {
     <Headless.Dialog open={open} onClose={setOpen} className="relative z-50">
       <Headless.DialogBackdrop className="fixed inset-0 bg-zinc-950/30" />
       <div className="fixed inset-0 overflow-y-auto p-4 pt-[12vh]">
-        <Headless.DialogPanel className="mx-auto w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-zinc-200">
+        <Headless.DialogPanel className="mx-auto w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-zinc-200 dark:bg-surface dark:ring-border">
           <Command label="Jump or create" className="flex flex-col">
             <div className="relative">
               <Command.Input
                 placeholder="Jump, create, or search…"
-                className="h-11 w-full border-b border-zinc-200 px-3 pr-16 text-sm text-zoom-dark outline-none placeholder:text-zinc-400"
+                className="h-11 w-full border-b border-zinc-200 bg-transparent px-3 pr-16 text-sm text-zoom-dark outline-none placeholder:text-zinc-400 dark:border-border dark:text-foreground"
               />
               <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-zinc-200 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
                 {modKey}K
@@ -201,6 +206,21 @@ export function CommandPalette({ admin = false }: CommandPaletteProps) {
                   ))}
                 </Command.Group>
               ) : null}
+
+              <Command.Group heading="Menu" className={groupClass}>
+                {menuPages.map((item) => (
+                  <Command.Item
+                    key={item.id}
+                    value={`${item.label} ${item.keywords?.join(" ") ?? ""}`}
+                    keywords={item.keywords}
+                    onSelect={() => go(item.href)}
+                    className={itemClass}
+                  >
+                    <span>{item.label}</span>
+                    <span className="truncate text-[11px] text-zinc-400">Open</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
 
               <Command.Group heading="Create" className={groupClass}>
                 {creates.map((action) => (

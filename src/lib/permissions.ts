@@ -57,6 +57,30 @@ export function canManageOperations(session: SessionPayload) {
   return isStaff(session);
 }
 
+export function canViewAccounting(session: SessionPayload) {
+  return isStaff(session);
+}
+
+export function canDraftAccounting(session: SessionPayload) {
+  return isStaff(session);
+}
+
+export function canPostJournals(session: SessionPayload) {
+  return isAdmin(session);
+}
+
+export function canProcessPayments(session: SessionPayload) {
+  return isStaff(session);
+}
+
+export function canViewFinancialReports(session: SessionPayload) {
+  return isStaff(session);
+}
+
+export function canManageAccountingSettings(session: SessionPayload) {
+  return isAdmin(session);
+}
+
 /** @deprecated Use canAccessOperations */
 export const canAccessServices = canAccessOperations;
 

@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { operationEntries, tasks } from "@/db/schema";
+import { AccountingError } from "@/lib/accounting/money";
+import { RecognitionOverlapError } from "@/lib/accounting/overlap";
+import { recordException } from "@/lib/accounting/phase3";
+import { syncCommercialDocumentAccounting } from "@/lib/accounting/sync-document";
 import { entryWithRelations } from "@/lib/create-operation-entry";
 import { requireDocumentReadyToLeaveDraft } from "@/lib/create-operation-document-lines";
 import {
@@ -136,10 +140,50 @@ export async function PATCH(request: Request, context: RouteContext) {
         .where(eq(tasks.operationEntryId, entryId));
     }
 
+    if (
+      input.documentStage &&
+      input.documentStage !== existing.documentStage &&
+      (existing.entryType === "invoice" || existing.entryType === "procurement")
+    ) {
+      try {
+        await syncCommercialDocumentAccounting({
+          operationId: id,
+          entryId,
+          previousStage: existing.documentStage,
+          nextStage: input.documentStage,
+          actorId: session.userId,
+        });
+      } catch (postingError) {
+        if (postingError instanceof RecognitionOverlapError) {
+          await recordException({
+            companyId: postingError.companyId,
+            kind: "duplicate_payable",
+            sourceType: "procurement",
+            sourceId: postingError.sourceId,
+            detail: postingError.message,
+          });
+          const updated = await loadEntry(id, entryId);
+          return NextResponse.json({
+            entry: updated,
+            postingNote: postingError.message,
+          });
+        }
+        await db
+          .update(operationEntries)
+          .set({ documentStage: existing.documentStage })
+          .where(eq(operationEntries.id, entryId));
+        throw postingError;
+      }
+    }
+
     const updated = await loadEntry(id, entryId);
 
     return NextResponse.json({ entry: updated });
   } catch (error) {
+    if (error instanceof AccountingError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.issues[0]?.message ?? "Invalid input" },
